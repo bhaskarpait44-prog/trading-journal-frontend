@@ -249,8 +249,9 @@ export function renderAdminLayout(container, pageTitle, activeRoute, renderConte
 }
 
 export function adminApi(path, opts = {}) {
-  const token = localStorage.getItem('token');
-  return fetch(`/api/admin${path}`, {
+  const token   = localStorage.getItem('token');
+  const baseUrl = (import.meta.env.VITE_API_URL || '') + '/api/admin';
+  return fetch(`${baseUrl}${path}`, {
     ...opts,
     headers: {
       'Content-Type': 'application/json',
