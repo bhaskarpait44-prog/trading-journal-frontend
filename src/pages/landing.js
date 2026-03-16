@@ -499,7 +499,7 @@ export function renderLanding(container) {
       </div>
       <div class="ln-drawer-btns">
         <button class="ln-btn-ghost" id="drawer-login" style="width:100%">Sign in</button>
-        <button class="ln-btn-solid" id="drawer-signup" style="width:100%">Start Free Trial →</button>
+        <button class="ln-btn-solid" id="drawer-signup" style="width:100%">Get Started →</button>
       </div>
     </div>
 
@@ -520,7 +520,7 @@ export function renderLanding(container) {
       </div>
       <div class="ln-nav-btns">
         <button class="ln-btn-ghost" id="nav-login">Sign in</button>
-        <button class="ln-btn-solid" id="nav-signup">Start Free Trial</button>
+        <button class="ln-btn-solid" id="nav-signup">Sign Up</button>
       </div>
       <!-- Hamburger — visible on mobile only -->
       <button class="ln-hamburger" id="ln-hamburger" aria-label="Open menu">
@@ -545,7 +545,7 @@ export function renderLanding(container) {
         </p>
         <div class="ln-hero-btns ln-fadeup ln-fadeup-3">
           <button class="ln-cta-primary" id="hero-trial">
-            Start Free Trial
+            Get Started
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
           <button class="ln-cta-secondary" id="hero-pricing">
@@ -865,9 +865,9 @@ export function renderLanding(container) {
         <h2 class="ln-final-title">Stop Guessing.<br>Start Trading with Data.</h2>
         <p class="ln-final-sub">Join 10,000+ Indian options traders who journal with TradeLog.</p>
         <button class="ln-cta-primary" id="final-cta" style="font-size:1rem;padding:0.875rem 2.5rem">
-          Start Trading Journal →
+          Get Started →
         </button>
-        <div style="margin-top:1.25rem;font-size:0.78rem;color:#3a4f6a">14-day free trial · No credit card · Cancel anytime</div>
+        <div style="margin-top:1.25rem;font-size:0.78rem;color:#3a4f6a">No credit card required · Cancel anytime</div>
       </div>
     </div>
 
@@ -879,13 +879,118 @@ export function renderLanding(container) {
             <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
           </svg>
         </div>
-        <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;color:#fff">TradeLog</span>
-        <span style="font-size:0.72rem;color:#3a4f6a;margin-left:0.5rem">© 2025</span>
+        <span style="font-weight:700;font-size:0.85rem;color:#fff">TradeLog</span>
+        <span style="font-size:0.72rem;color:#3a4f6a;margin-left:0.5rem">© 2025 · All rights reserved</span>
       </div>
       <div style="display:flex;gap:1.5rem">
-        <a href="#" style="font-size:0.75rem;color:#3a4f6a;text-decoration:none">Privacy</a>
-        <a href="#" style="font-size:0.75rem;color:#3a4f6a;text-decoration:none">Terms</a>
-        <a href="#" style="font-size:0.75rem;color:#3a4f6a;text-decoration:none">Contact</a>
+        <a href="#" id="footer-privacy" style="font-size:0.75rem;color:#3a4f6a;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#7a90b0'" onmouseout="this.style.color='#3a4f6a'">Privacy Policy</a>
+        <a href="#" id="footer-terms"   style="font-size:0.75rem;color:#3a4f6a;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#7a90b0'" onmouseout="this.style.color='#3a4f6a'">Terms of Service</a>
+        <a href="#" id="footer-contact" style="font-size:0.75rem;color:#3a4f6a;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#7a90b0'" onmouseout="this.style.color='#3a4f6a'">Contact Us</a>
+      </div>
+    </div>
+
+    <!-- ── Privacy Policy Modal ── -->
+    <div id="ln-privacy-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(6px)">
+      <div style="background:#0d1524;border:1px solid #1e2d45;border-radius:16px;width:100%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid #1e2d45;flex-shrink:0">
+          <div style="font-weight:700;font-size:1rem;color:#e8eeff">🔒 Privacy Policy</div>
+          <button class="ln-modal-close" data-modal="ln-privacy-modal" style="background:none;border:none;color:#7a90b0;cursor:pointer;font-size:1.1rem;line-height:1;padding:0.2rem">✕</button>
+        </div>
+        <div style="padding:1.5rem;overflow-y:auto;font-size:0.82rem;color:#7a90b0;line-height:1.8">
+          <p style="font-size:0.7rem;color:#3a4f6a;margin-bottom:1.25rem">Last updated: January 2025</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">1. Information We Collect</h3>
+          <p style="margin-bottom:1rem">We collect your name, email address, and trade data you enter into TradeLog. If you connect a broker API (Dhan), we temporarily access trade records to import them — we never store your API credentials or access tokens.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">2. How We Use Your Data</h3>
+          <p style="margin-bottom:1rem">Your data is used solely to provide the TradeLog service — displaying your trades, computing analytics, and generating psychology insights. We do not use your data for advertising and never sell it to third parties under any circumstances.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">3. Data Storage & Security</h3>
+          <p style="margin-bottom:1rem">Your data is stored on secure servers with encryption in transit (HTTPS/TLS) and at rest. We use industry-standard security practices. Passwords are hashed using bcrypt and are never stored in plain text.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">4. Data Deletion</h3>
+          <p style="margin-bottom:1rem">You can permanently delete your account and all associated trade data at any time from Profile → Privacy settings. Deletion is immediate and irreversible.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">5. Cookies</h3>
+          <p style="margin-bottom:1rem">We use only functional storage (JWT token in localStorage) necessary to keep you logged in. We do not use tracking or advertising cookies.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">6. Third-Party Services</h3>
+          <p style="margin-bottom:1rem">We use Google Sign-In (optional) and Razorpay for payments. These services have their own privacy policies. We share only the minimum data required for these integrations.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">7. Contact</h3>
+          <p>For privacy-related questions or data requests, email us at <span style="color:#60a5fa">support@tradelog.in</span>.</p>
+        </div>
+        <div style="padding:1rem 1.5rem;border-top:1px solid #1e2d45;flex-shrink:0">
+          <button class="ln-modal-close" data-modal="ln-privacy-modal" style="width:100%;padding:0.65rem;border-radius:8px;border:1px solid #1e2d45;background:transparent;color:#7a90b0;cursor:pointer;font-size:0.85rem;font-family:inherit">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Terms of Service Modal ── -->
+    <div id="ln-terms-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(6px)">
+      <div style="background:#0d1524;border:1px solid #1e2d45;border-radius:16px;width:100%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid #1e2d45;flex-shrink:0">
+          <div style="font-weight:700;font-size:1rem;color:#e8eeff">📄 Terms of Service</div>
+          <button class="ln-modal-close" data-modal="ln-terms-modal" style="background:none;border:none;color:#7a90b0;cursor:pointer;font-size:1.1rem;line-height:1;padding:0.2rem">✕</button>
+        </div>
+        <div style="padding:1.5rem;overflow-y:auto;font-size:0.82rem;color:#7a90b0;line-height:1.8">
+          <p style="font-size:0.7rem;color:#3a4f6a;margin-bottom:1.25rem">Last updated: January 2025</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">1. Acceptance of Terms</h3>
+          <p style="margin-bottom:1rem">By creating a TradeLog account, you agree to be bound by these Terms of Service. If you do not agree, please do not use the service. You must be at least 18 years old to use TradeLog.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">2. Use of Service</h3>
+          <p style="margin-bottom:1rem">TradeLog is a personal trading journal and analytics tool for individual use. You agree to use the service only for lawful purposes. You may not share your account or use the platform to store data that violates any applicable law.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">3. Not Financial Advice</h3>
+          <p style="margin-bottom:1rem">TradeLog is a journaling and analytics tool only. Nothing on the platform constitutes financial, investment, or trading advice. Past performance shown in your journal does not guarantee future results. Always consult a qualified financial advisor before making trading decisions.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">4. Account Responsibility</h3>
+          <p style="margin-bottom:1rem">You are responsible for maintaining the confidentiality of your account credentials. You agree to notify us immediately of any unauthorised use. TradeLog is not liable for losses resulting from unauthorised account access.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">5. Subscription & Payments</h3>
+          <p style="margin-bottom:1rem">Paid plans are billed monthly via Razorpay. You may cancel at any time — access continues until the end of the current billing period. Refunds are not provided for partial months. We reserve the right to change prices with 30 days' notice.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">6. Termination</h3>
+          <p style="margin-bottom:1rem">We reserve the right to suspend or terminate accounts that violate these terms. You may delete your account at any time from Profile settings.</p>
+          <h3 style="color:#c0cce0;font-size:0.875rem;margin-bottom:0.5rem">7. Limitation of Liability</h3>
+          <p>TradeLog and its operators shall not be liable for any indirect, incidental, or consequential damages arising from use of the service. Our maximum liability shall not exceed the amount you paid in the last 30 days.</p>
+        </div>
+        <div style="padding:1rem 1.5rem;border-top:1px solid #1e2d45;flex-shrink:0">
+          <button class="ln-modal-close" data-modal="ln-terms-modal" style="width:100%;padding:0.65rem;border-radius:8px;border:1px solid #1e2d45;background:transparent;color:#7a90b0;cursor:pointer;font-size:0.85rem;font-family:inherit">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Contact Modal ── -->
+    <div id="ln-contact-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(6px)">
+      <div style="background:#0d1524;border:1px solid #1e2d45;border-radius:16px;width:100%;max-width:480px;display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid #1e2d45">
+          <div style="font-weight:700;font-size:1rem;color:#e8eeff">✉️ Contact Us</div>
+          <button class="ln-modal-close" data-modal="ln-contact-modal" style="background:none;border:none;color:#7a90b0;cursor:pointer;font-size:1.1rem;line-height:1;padding:0.2rem">✕</button>
+        </div>
+        <div style="padding:1.5rem;font-size:0.82rem;color:#7a90b0;line-height:1.8">
+          <p style="margin-bottom:1.5rem">We'd love to hear from you. Reach out for support, feedback, or partnership inquiries.</p>
+          <div style="display:flex;flex-direction:column;gap:0.875rem">
+            <div style="display:flex;align-items:center;gap:0.875rem;padding:0.875rem;background:#080c14;border:1px solid #1e2d45;border-radius:10px">
+              <div style="width:36px;height:36px;border-radius:9px;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div>
+                <div style="font-size:0.72rem;color:#3a4f6a;margin-bottom:2px">Email Support</div>
+                <a href="mailto:support@tradelog.in" style="color:#60a5fa;text-decoration:none;font-size:0.85rem;font-weight:500">support@tradelog.in</a>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.875rem;padding:0.875rem;background:#080c14;border:1px solid #1e2d45;border-radius:10px">
+              <div style="width:36px;height:36px;border-radius:9px;background:rgba(168,85,247,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              </div>
+              <div>
+                <div style="font-size:0.72rem;color:#3a4f6a;margin-bottom:2px">Discord Community</div>
+                <a href="#" style="color:#c084fc;text-decoration:none;font-size:0.85rem;font-weight:500">Join our Discord →</a>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.875rem;padding:0.875rem;background:#080c14;border:1px solid #1e2d45;border-radius:10px">
+              <div style="width:36px;height:36px;border-radius:9px;background:rgba(34,197,94,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div>
+                <div style="font-size:0.72rem;color:#3a4f6a;margin-bottom:2px">Response Time</div>
+                <span style="color:#c0cce0;font-size:0.85rem">Within 24 hours on business days</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:1rem 1.5rem;border-top:1px solid #1e2d45">
+          <button class="ln-modal-close" data-modal="ln-contact-modal" style="width:100%;padding:0.65rem;border-radius:8px;border:1px solid #1e2d45;background:transparent;color:#7a90b0;cursor:pointer;font-size:0.85rem;font-family:inherit">Close</button>
+        </div>
       </div>
     </div>
   </div>
@@ -941,8 +1046,27 @@ export function renderLanding(container) {
   container.querySelector('#nav-login').addEventListener('click', () => navigate('#login'));
   container.querySelector('#nav-signup').addEventListener('click', goSignup);
   container.querySelector('#hero-trial').addEventListener('click', goSignup);
-  container.querySelector('#hero-pricing').addEventListener('click', goPricing);
+  container.querySelector('#hero-pricing').addEventListener('click', () => {
+    const target = container.querySelector('#ln-pricing');
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   container.querySelector('#final-cta').addEventListener('click', goSignup);
+
+  // ── Footer modals ─────────────────────────────────────────────────────────
+  const openModal  = (id) => { const m = container.querySelector(`#${id}`); if (m) { m.style.display = 'flex'; document.body.style.overflow = 'hidden'; } };
+  const closeAllModals = () => { ['ln-privacy-modal','ln-terms-modal','ln-contact-modal'].forEach(id => { const m = container.querySelector(`#${id}`); if (m) m.style.display = 'none'; }); document.body.style.overflow = ''; };
+
+  container.querySelector('#footer-privacy').addEventListener('click', e => { e.preventDefault(); openModal('ln-privacy-modal'); });
+  container.querySelector('#footer-terms').addEventListener('click',   e => { e.preventDefault(); openModal('ln-terms-modal'); });
+  container.querySelector('#footer-contact').addEventListener('click', e => { e.preventDefault(); openModal('ln-contact-modal'); });
+
+  container.querySelectorAll('.ln-modal-close').forEach(btn => {
+    btn.addEventListener('click', closeAllModals);
+  });
+  ['ln-privacy-modal','ln-terms-modal','ln-contact-modal'].forEach(id => {
+    const m = container.querySelector(`#${id}`);
+    if (m) m.addEventListener('click', e => { if (e.target === m) closeAllModals(); });
+  });
 
   // Pricing plan buttons
   container.querySelectorAll('[data-plan]').forEach(btn => {
