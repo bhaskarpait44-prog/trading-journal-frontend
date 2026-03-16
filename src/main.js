@@ -13,6 +13,7 @@ import { renderProfile }    from './pages/profile.js';
 import { renderRisk }       from './pages/risk.js';
 import { renderPricing }    from './pages/pricing.js';
 import { renderPayment }    from './pages/payment.js';
+import { renderResetPassword } from './pages/reset-password.js';
 import { auth }             from './lib/auth.js';
 
 // ── App shell ──────────────────────────────────────────────────────────────
@@ -140,8 +141,9 @@ window.addEventListener('hashchange', updateNavbar);
 register('#landing',    c => renderLanding(c));
 register('#login',      c => renderLogin(c));
 register('#signup',     c => renderSignup(c));
-register('#pricing',    c => renderPricing(c));
-register('#payment',    c => renderPayment(c));
+register('#pricing',        c => renderPricing(c));
+register('#payment',        c => renderPayment(c));
+register('#reset-password', c => renderResetPassword(c));
 register('#dashboard',  c => renderDashboard(c));
 register('#trades',     c => renderTrades(c));
 register('#add-trade',  c => renderAddTrade(c));

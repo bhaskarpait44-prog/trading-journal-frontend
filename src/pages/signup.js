@@ -235,7 +235,12 @@ export async function renderSignup(container) {
       toast('Account created! Choose your plan →');
       navigate('#pricing');
     } catch (err) {
-      toast(err.message, 'error');
+      if (err.message?.toLowerCase().includes('already exists') || err.message?.toLowerCase().includes('already registered')) {
+        toast('This email is already registered. Redirecting to sign in…', 'error');
+        setTimeout(() => navigate('#login'), 1800);
+      } else {
+        toast(err.message, 'error');
+      }
       btn.textContent = 'Create Account & Continue →';
       btn.disabled = false;
     }

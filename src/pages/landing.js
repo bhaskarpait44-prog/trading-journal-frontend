@@ -223,7 +223,7 @@ export function renderLanding(container) {
     .ln-psych-desc { font-size:0.8rem; color:#7a90b0; line-height:1.6; }
 
     /* Pricing */
-    .ln-pricing-grid { display:grid; grid-template-columns:1fr 1.08fr; gap:1.5rem; margin-top:3rem; max-width:720px; }
+    .ln-pricing-grid { display:grid; grid-template-columns:1fr 1.08fr; gap:1.5rem; margin-top:3rem; max-width:720px; margin-left:auto; margin-right:auto; }
     @media(max-width:700px){ .ln-pricing-grid{ grid-template-columns:1fr; max-width:400px; } }
     .ln-plan {
       background:#0d1524; border:1px solid rgba(255,255,255,0.08);
@@ -520,7 +520,7 @@ export function renderLanding(container) {
       </div>
       <div class="ln-nav-btns">
         <button class="ln-btn-ghost" id="nav-login">Sign in</button>
-        <button class="ln-btn-solid" id="nav-signup">Sign Up</button>
+        <button class="ln-btn-solid" id="nav-signup">Get Started</button>
       </div>
       <!-- Hamburger — visible on mobile only -->
       <button class="ln-hamburger" id="ln-hamburger" aria-label="Open menu">

@@ -6,7 +6,7 @@ const routes = {};
 export function register(hash, renderFn) { routes[hash] = renderFn; }
 export function navigate(hash) { window.location.hash = hash; }
 
-const PUBLIC_ROUTES  = ['#landing', '#login', '#signup'];
+const PUBLIC_ROUTES  = ['#landing', '#login', '#signup', '#reset-password'];
 const AUTH_ONLY      = ['#pricing', '#payment'];
 
 // Pages that need full-page scroll (no fixed-height shell)
@@ -14,7 +14,9 @@ const FULL_PAGE_ROUTES = ['#landing', '#login', '#signup', '#pricing', '#payment
 
 export function initRouter() {
   async function route() {
-    const hash       = window.location.hash || '#landing';
+    const fullHash   = window.location.hash || '#landing';
+    // Strip query string from hash for route matching (e.g. #reset-password?token=xx → #reset-password)
+    const hash       = fullHash.split('?')[0];
     const loggedIn   = auth.isLoggedIn();
     const hasSub     = auth.hasActiveSubscription();
     const isPublic   = PUBLIC_ROUTES.includes(hash);
