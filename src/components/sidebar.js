@@ -21,7 +21,15 @@ const NAV_ITEMS = [
   ['#risk',       'risk',       'Risk Management'],
 ];
 
+// Keep refs to re-render on demand
+const _containers = new Set();
+
+export function refreshSidebar() {
+  _containers.forEach(c => { if (document.contains(c)) renderSidebar(c); });
+}
+
 export function renderSidebar(container) {
+  _containers.add(container);
   const user    = auth.getUser();
   const isAdmin = user?.role === 'admin';
   const initial = (user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase();

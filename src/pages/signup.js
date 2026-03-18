@@ -232,6 +232,7 @@ export async function renderSignup(container) {
         password: pw,
       });
       auth.save(res.token, res.user);
+      window.refreshSidebar?.();
       toast('Account created! Choose your plan →');
       navigate('#pricing');
     } catch (err) {
@@ -254,6 +255,7 @@ export async function renderSignup(container) {
         try {
           const res = await api.post('/auth/google', { credential: response.credential });
           auth.save(res.token, res.user);
+      window.refreshSidebar?.();
           toast('Welcome! Choose your plan →');
           navigate('#pricing');
         } catch (err) {

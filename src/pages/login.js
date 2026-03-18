@@ -140,6 +140,7 @@ export async function renderLogin(container) {
         password: container.querySelector('#password').value,
       });
       auth.save(res.token, res.user);
+      window.refreshSidebar?.();
       toast('Welcome back!');
       navigate('#dashboard');
     } catch (err) {
@@ -194,6 +195,7 @@ export async function renderLogin(container) {
         try {
           const res = await api.post('/auth/google', { credential: response.credential });
           auth.save(res.token, res.user);
+      window.refreshSidebar?.();
           toast('Welcome back!');
           navigate('#dashboard');
         } catch (err) { toast(err.message, 'error'); }

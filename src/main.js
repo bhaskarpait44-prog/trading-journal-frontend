@@ -1,6 +1,6 @@
 import './style.css';
 import { register, initRouter, navigate } from './router.js';
-import { renderSidebar }    from './components/sidebar.js';
+import { renderSidebar, refreshSidebar } from './components/sidebar.js';
 import { renderLanding }    from './pages/landing.js';
 import { renderLogin }      from './pages/login.js';
 import { renderSignup }     from './pages/signup.js';
@@ -87,6 +87,8 @@ document.querySelector('#app').innerHTML = `
 // ── Render sidebars ───────────────────────────────────────────────────────
 renderSidebar(document.getElementById('sidebar'));
 renderSidebar(document.getElementById('mobile-sidebar'));
+// Expose globally so login/signup pages can refresh sidebar without circular imports
+window.refreshSidebar = refreshSidebar;
 
 // ── Mobile drawer ─────────────────────────────────────────────────────────
 function openDrawer() {
