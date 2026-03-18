@@ -368,6 +368,8 @@ textarea.input { resize: vertical; }
   .auth-left { display: none !important; }
   .auth-right { padding: 1.5rem 1.25rem; }
   .ln-nav-links { display: none !important; }
+  .ln-nav-btns  { display: none !important; }
+  .ln-hamburger { display: flex !important; }
   .ln-nav { padding: 0 1rem; }
   .ln-hero { padding: 100px 1.25rem 50px !important; gap: 2rem !important; grid-template-columns: 1fr !important; }
   .ln-h1 { font-size: clamp(1.75rem, 7vw, 2.6rem) !important; }
@@ -384,6 +386,5 @@ textarea.input { resize: vertical; }
 @media (max-width: 480px) {
   .user-menu-name { display: none; }
   .ln-nav-btns { gap: 0.5rem; }
-  .ln-btn-ghost { display: none; }
   .ln-h1 { font-size: clamp(1.5rem, 8vw, 2.2rem) !important; }
 }

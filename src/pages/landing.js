@@ -553,7 +553,7 @@ export function renderLanding(container) {
           </button>
         </div>
         <div class="ln-fadeup ln-fadeup-4" style="margin-top:2rem;display:flex;gap:2rem;flex-wrap:wrap">
-          ${[['10,000+','Active traders'],['₹50Cr+','P&L tracked'],['4.9★','User rating']].map(([v,l])=>`
+          ${[['2000+','Active traders'],['₹50Cr+','P&L tracked'],['4.9★','User rating']].map(([v,l])=>`
             <div>
               <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.25rem;color:#fff">${v}</div>
               <div style="font-size:0.72rem;color:#3a4f6a;margin-top:2px">${l}</div>
