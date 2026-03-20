@@ -5,7 +5,7 @@ import { buildSymbol } from '../lib/utils.js';
 
 // ── NSE symbols ───────────────────────────────────────────────────────────────
 const FALLBACK_SYMBOLS = [
-  { symbol: 'NIFTY',      lotSize: 75   },
+  { symbol: 'NIFTY',      lotSize: 65   },
   { symbol: 'BANKNIFTY',  lotSize: 30   },
   { symbol: 'FINNIFTY',   lotSize: 65   },
   { symbol: 'MIDCPNIFTY', lotSize: 120  },
@@ -367,14 +367,6 @@ function renderManual(container) {
             <input class="input" type="date" id="exit-date">
           </div>
           <div class="field">
-            <label>Stop Loss ₹</label>
-            <input class="input" type="number" step="0.05" id="stop-loss" placeholder="Optional">
-          </div>
-          <div class="field">
-            <label>Target ₹</label>
-            <input class="input" type="number" step="0.05" id="target" placeholder="Optional">
-          </div>
-          <div class="field">
             <label>Charges ₹</label>
             <input class="input" type="number" id="charges" value="20">
           </div>
@@ -584,8 +576,6 @@ function renderManual(container) {
       symbol:      container.querySelector('#symbol-val')?.textContent || hiddenInput.value,
       psychology:  psych,
     };
-    if (get('stop-loss')) payload.stopLoss  = parseFloat(get('stop-loss'));
-    if (get('target'))    payload.target    = parseFloat(get('target'));
     if (status === 'CLOSED') {
       if (get('exit-price')) payload.exitPrice = parseFloat(get('exit-price'));
       if (get('exit-date'))  payload.exitDate  = get('exit-date');
@@ -948,133 +938,518 @@ function renderCSV(container) {
   });
 }
 
+
 // ── DHAN API TAB ──────────────────────────────────────────────────────────────
 function renderDhan(container) {
   const today     = new Date().toISOString().slice(0, 10);
   const thirtyAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   container.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:1rem;max-width:1100px" class="fade-up">
+    <style>
+      .dhan-wrap {
+        max-width: 780px;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
 
-      <!-- Two-column layout -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start">
+      /* ── Header banner ── */
+      .dhan-banner {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.1rem 1.25rem;
+        background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(99,102,241,0.06));
+        border: 1px solid rgba(59,130,246,0.25);
+        border-radius: 14px;
+        position: relative;
+        overflow: hidden;
+      }
+      .dhan-banner::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(99,102,241,0.6), transparent);
+      }
+      .dhan-banner-logo {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem; font-weight: 800; color: #fff;
+        flex-shrink: 0;
+        box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+      }
+      .dhan-banner-text { flex: 1; min-width: 0; }
+      .dhan-banner-title {
+        font-size: 0.95rem; font-weight: 700; color: #e8eeff;
+        margin-bottom: 2px;
+      }
+      .dhan-banner-sub { font-size: 0.72rem; color: #7a90b0; }
+      .dhan-banner-badge {
+        padding: 3px 10px;
+        background: rgba(34,197,94,0.12);
+        border: 1px solid rgba(34,197,94,0.3);
+        border-radius: 20px;
+        font-size: 0.65rem; font-weight: 700;
+        color: #22c55e; white-space: nowrap; flex-shrink: 0;
+      }
 
-        <!-- LEFT: Dhan credentials + Notes/Strategy -->
+      /* ── Main grid ── */
+      .dhan-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        align-items: start;
+      }
+      @media (max-width: 640px) {
+        .dhan-grid { grid-template-columns: 1fr; }
+        .dhan-banner { flex-wrap: wrap; }
+        .dhan-banner-badge { margin-top: 0.25rem; }
+      }
+
+      /* ── Credential card ── */
+      .dhan-cred-card {
+        background: #0a1220;
+        border: 1px solid #1e2d45;
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .dhan-card-header {
+        padding: 0.875rem 1.1rem;
+        background: #080e1a;
+        border-bottom: 1px solid #1e2d45;
+        display: flex; align-items: center; gap: 0.5rem;
+      }
+      .dhan-card-header-icon {
+        width: 26px; height: 26px; border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+      }
+      .dhan-card-title { font-size: 0.82rem; font-weight: 700; color: #e8eeff; }
+      .dhan-card-sub   { font-size: 0.65rem; color: #3a4f6a; margin-top: 1px; }
+      .dhan-card-body  { padding: 1.1rem; display: flex; flex-direction: column; gap: 0.875rem; }
+
+      /* ── Token input with show/hide ── */
+      .dhan-token-wrap { position: relative; }
+      .dhan-token-wrap .input { padding-right: 2.5rem; }
+      .dhan-token-eye {
+        position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+        background: none; border: none; color: #3a4f6a; cursor: pointer;
+        padding: 0; line-height: 1;
+        transition: color 0.15s;
+      }
+      .dhan-token-eye:hover { color: #7a90b0; }
+
+      /* ── Date range row ── */
+      .dhan-date-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.625rem;
+      }
+
+      /* ── Quick date chips ── */
+      .dhan-date-chips {
+        display: flex; flex-wrap: wrap; gap: 0.35rem;
+      }
+      .dhan-chip {
+        padding: 0.25rem 0.7rem;
+        background: #080c14;
+        border: 1px solid #1e2d45;
+        border-radius: 20px;
+        font-size: 0.68rem; font-weight: 500; color: #7a90b0;
+        cursor: pointer; transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .dhan-chip:hover, .dhan-chip.active {
+        background: rgba(59,130,246,0.1);
+        border-color: rgba(59,130,246,0.4);
+        color: #60a5fa;
+      }
+
+      /* ── Info pills ── */
+      .dhan-info {
+        padding: 0.625rem 0.875rem;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        line-height: 1.6;
+      }
+      .dhan-info-blue {
+        background: rgba(59,130,246,0.06);
+        border: 1px solid rgba(59,130,246,0.18);
+        color: #7a90b0;
+      }
+      .dhan-info-yellow {
+        background: rgba(234,179,8,0.06);
+        border: 1px solid rgba(234,179,8,0.2);
+        color: #ca8a04;
+        display: flex; align-items: center; gap: 0.4rem;
+      }
+
+      /* ── Sync button ── */
+      .dhan-sync-btn {
+        width: 100%;
+        padding: 0.8rem;
+        border-radius: 10px; border: none;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        color: #fff;
+        font-size: 0.9rem; font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+        transition: all 0.2s;
+        box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+        letter-spacing: -0.01em;
+      }
+      .dhan-sync-btn:hover:not(:disabled) {
+        filter: brightness(1.1);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 28px rgba(99,102,241,0.4);
+      }
+      .dhan-sync-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+      /* ── Result box ── */
+      .dhan-result-ok {
+        padding: 0.875rem 1rem;
+        background: rgba(34,197,94,0.07);
+        border: 1px solid rgba(34,197,94,0.25);
+        border-radius: 10px;
+      }
+      .dhan-result-err {
+        padding: 0.875rem 1rem;
+        background: rgba(239,68,68,0.07);
+        border: 1px solid rgba(239,68,68,0.25);
+        border-radius: 10px;
+      }
+      .dhan-result-title { font-size: 0.875rem; font-weight: 700; margin-bottom: 4px; }
+      .dhan-result-sub   { font-size: 0.75rem; color: #7a90b0; line-height: 1.5; }
+
+      /* ── Psychology panel ── */
+      .dhan-psych-card {
+        background: #0a1220;
+        border: 1px solid rgba(168,85,247,0.2);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .dhan-psych-header {
+        padding: 0.875rem 1.1rem;
+        background: rgba(168,85,247,0.05);
+        border-bottom: 1px solid rgba(168,85,247,0.15);
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 0.75rem;
+      }
+      .dhan-psych-body { padding: 1.1rem; }
+
+      /* Toggle pill */
+      .dhan-toggle-wrap {
+        display: flex; align-items: center; gap: 0.5rem;
+        cursor: pointer; user-select: none; flex-shrink: 0;
+      }
+      .dhan-toggle-label { font-size: 0.72rem; font-weight: 600; transition: color 0.2s; }
+      .dhan-toggle-track {
+        position: relative; width: 40px; height: 22px;
+      }
+      .dhan-toggle-track input {
+        opacity: 0; position: absolute; width: 100%; height: 100%;
+        cursor: pointer; margin: 0; z-index: 1;
+      }
+      .dhan-toggle-bg {
+        position: absolute; inset: 0; border-radius: 11px;
+        background: #1e2d45; border: 1px solid #2a3f5a;
+        transition: all 0.2s;
+      }
+      .dhan-toggle-thumb {
+        position: absolute; top: 3px; left: 3px;
+        width: 16px; height: 16px; border-radius: 50%;
+        background: #3a4f6a; transition: all 0.2s;
+      }
+
+      /* ── How-to steps ── */
+      .dhan-steps {
+        background: #080c14;
+        border: 1px solid #1e2d45;
+        border-radius: 12px;
+        padding: 1rem;
+      }
+      .dhan-steps-title {
+        font-size: 0.75rem; font-weight: 700; color: #c0cce0;
+        margin-bottom: 0.75rem;
+        display: flex; align-items: center; gap: 0.375rem;
+      }
+      .dhan-step {
+        display: flex; gap: 0.75rem; align-items: flex-start;
+        margin-bottom: 0.625rem;
+      }
+      .dhan-step:last-child { margin-bottom: 0; }
+      .dhan-step-num {
+        width: 20px; height: 20px; border-radius: 50%;
+        background: rgba(59,130,246,0.15);
+        border: 1px solid rgba(59,130,246,0.3);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.62rem; font-weight: 700; color: #60a5fa;
+        flex-shrink: 0; margin-top: 1px;
+      }
+      .dhan-step-text {
+        font-size: 0.72rem; color: #7a90b0; line-height: 1.55;
+      }
+      .dhan-step-text strong { color: #c0cce0; }
+      .dhan-step-text a { color: #60a5fa; text-decoration: none; }
+      .dhan-step-text a:hover { text-decoration: underline; }
+    </style>
+
+    <div class="dhan-wrap fade-up">
+
+      <!-- Banner -->
+      <div class="dhan-banner">
+        <div class="dhan-banner-logo">D</div>
+        <div class="dhan-banner-text">
+          <div class="dhan-banner-title">Dhan Broker Sync</div>
+          <div class="dhan-banner-sub">Import your F&amp;O trades directly — no manual CSV export needed</div>
+        </div>
+        <div class="dhan-banner-badge">✓ Read-only · Safe</div>
+      </div>
+
+      <!-- Main grid -->
+      <div class="dhan-grid">
+
+        <!-- LEFT: Credentials + config -->
         <div style="display:flex;flex-direction:column;gap:1rem">
-          <div class="card">
-            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;padding-bottom:0.625rem;border-bottom:1px solid #1e2d45">
-              <div style="width:28px;height:28px;border-radius:7px;background:rgba(59,130,246,0.15);
-                   display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#60a5fa;flex-shrink:0">D</div>
+
+          <!-- Credentials -->
+          <div class="dhan-cred-card">
+            <div class="dhan-card-header">
+              <div class="dhan-card-header-icon" style="background:rgba(59,130,246,0.15)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                </svg>
+              </div>
               <div>
-                <div style="font-weight:600;font-size:0.875rem;color:#e8eeff">Dhan API Sync</div>
-                <div style="font-size:0.65rem;color:#3a4f6a">Sync F&amp;O trades directly from your Dhan account</div>
+                <div class="dhan-card-title">API Credentials</div>
+                <div class="dhan-card-sub">Used only for this sync — never stored</div>
               </div>
             </div>
-
-            <div style="display:flex;flex-direction:column;gap:0.75rem">
+            <div class="dhan-card-body">
               <div class="field">
                 <label>Client ID <span class="req">*</span></label>
-                <input class="input" id="dhan-client-id" placeholder="Your Dhan client ID">
+                <input class="input" id="dhan-client-id" placeholder="Your Dhan client ID" autocomplete="off">
               </div>
               <div class="field">
                 <label>Access Token <span class="req">*</span></label>
-                <input class="input" type="password" id="dhan-token" placeholder="Dhan API access token">
+                <div class="dhan-token-wrap">
+                  <input class="input" type="password" id="dhan-token" placeholder="Paste your access token" autocomplete="off">
+                  <button class="dhan-token-eye" id="dhan-eye" type="button" title="Show/hide token">
+                    <svg id="dhan-eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.625rem">
-                <div class="field">
-                  <label>From Date</label>
+              <div class="dhan-info dhan-info-yellow">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Token expires daily — regenerate each session
+              </div>
+            </div>
+          </div>
+
+          <!-- Date range -->
+          <div class="dhan-cred-card">
+            <div class="dhan-card-header">
+              <div class="dhan-card-header-icon" style="background:rgba(34,197,94,0.12)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                </svg>
+              </div>
+              <div>
+                <div class="dhan-card-title">Date Range</div>
+                <div class="dhan-card-sub">Select the period to import</div>
+              </div>
+            </div>
+            <div class="dhan-card-body">
+              <!-- Quick chips -->
+              <div>
+                <div style="font-size:0.65rem;font-weight:600;color:#3a4f6a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.4rem">Quick Select</div>
+                <div class="dhan-date-chips">
+                  <button class="dhan-chip" data-days="1">Today</button>
+                  <button class="dhan-chip" data-days="7">Last 7d</button>
+                  <button class="dhan-chip active" data-days="30">Last 30d</button>
+                  <button class="dhan-chip" data-days="90">Last 90d</button>
+                </div>
+              </div>
+              <!-- Custom range -->
+              <div class="dhan-date-row">
+                <div class="field" style="margin:0">
+                  <label>From</label>
                   <input class="input" type="date" id="from-date" value="${thirtyAgo}">
                 </div>
-                <div class="field">
-                  <label>To Date</label>
+                <div class="field" style="margin:0">
+                  <label>To</label>
                   <input class="input" type="date" id="to-date" value="${today}">
                 </div>
               </div>
             </div>
+          </div>
 
-            <!-- Notes & Strategy -->
-            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #1e2d45;display:flex;flex-direction:column;gap:0.75rem">
-              <div class="field">
-                <label>Strategy <span style="font-size:0.65rem;font-weight:400;color:#3a4f6a">(applied to all synced trades)</span></label>
+          <!-- Strategy + Notes -->
+          <div class="dhan-cred-card">
+            <div class="dhan-card-header">
+              <div class="dhan-card-header-icon" style="background:rgba(168,85,247,0.12)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="dhan-card-title">Tag Imported Trades</div>
+                <div class="dhan-card-sub">Applied to all synced trades</div>
+              </div>
+            </div>
+            <div class="dhan-card-body">
+              <div class="field" style="margin:0">
+                <label>Strategy</label>
                 <select class="input" id="dhan-strategy">
                   <option value="">No strategy tag…</option>
                   ${STRATEGIES.map(s => `<option>${s}</option>`).join('')}
                 </select>
               </div>
-              <div class="field">
-                <label>Notes <span style="font-size:0.65rem;font-weight:400;color:#3a4f6a">(applied to all synced trades)</span></label>
-                <textarea class="input" id="dhan-notes" rows="2" placeholder="e.g. Synced from Dhan · Weekly expiry trades"></textarea>
+              <div class="field" style="margin:0">
+                <label>Notes</label>
+                <textarea class="input" id="dhan-notes" rows="2"
+                  placeholder="e.g. Weekly expiry trades · Dhan sync"
+                  style="resize:none"></textarea>
               </div>
             </div>
-
-            <div style="margin-top:0.875rem;padding:0.625rem 0.875rem;background:rgba(59,130,246,0.06);
-                        border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:0.72rem;color:#7a90b0">
-              <strong style="color:#60a5fa">How to get credentials:</strong><br>
-              Login at <a href="https://web.dhan.co" target="_blank" style="color:#60a5fa">web.dhan.co</a>
-              → My Profile → Access Token → Copy Client ID + generate token<br>
-              <span style="color:#3a4f6a">⚠️ Token expires daily — regenerate each session</span>
-            </div>
-            <div style="margin-top:0.5rem;padding:0.5rem 0.875rem;background:rgba(234,179,8,0.07);
-                        border:1px solid rgba(234,179,8,0.2);border-radius:8px;font-size:0.72rem;color:#eab308">
-              🔒 Credentials used only for this sync and never stored.
-            </div>
-
-            <div id="dhan-result" style="display:none;margin-top:0.875rem"></div>
-            <button class="btn btn-primary" id="dhan-btn" style="margin-top:1rem;width:100%;justify-content:center">
-              Sync Trades →
-            </button>
           </div>
+
+          <!-- Result -->
+          <div id="dhan-result" style="display:none"></div>
+
+          <!-- Sync button -->
+          <button class="dhan-sync-btn" id="dhan-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+            </svg>
+            Sync Trades from Dhan
+          </button>
         </div>
 
-        <!-- RIGHT: Psychology panel -->
+        <!-- RIGHT: Psychology + How-to -->
         <div style="display:flex;flex-direction:column;gap:1rem">
-          <div class="card" style="border-color:rgba(168,85,247,0.3);background:rgba(168,85,247,0.03)">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem;padding-bottom:0.625rem;border-bottom:1px solid rgba(168,85,247,0.2)">
-              <div style="display:flex;align-items:center;gap:0.5rem">
-                <span style="font-size:1rem">🧠</span>
-                <div>
-                  <div style="font-weight:600;font-size:0.85rem;color:#c084fc">Psychology</div>
-                  <div id="dhan-psych-status-label" style="font-size:0.65rem;color:#7a90b0;margin-top:1px">Toggle off for historical syncs</div>
+
+          <!-- Psychology -->
+          <div class="dhan-psych-card">
+            <div class="dhan-psych-header">
+              <div style="display:flex;align-items:center;gap:0.5rem;min-width:0">
+                <span style="font-size:1.1rem;flex-shrink:0">🧠</span>
+                <div style="min-width:0">
+                  <div style="font-weight:700;font-size:0.85rem;color:#c084fc">Trade Psychology</div>
+                  <div id="dhan-psych-sub" style="font-size:0.65rem;color:#7a90b0;margin-top:1px">Auto-enabled for today's trades</div>
                 </div>
               </div>
-              <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;user-select:none">
-                <span id="dhan-psych-toggle-label" style="font-size:0.72rem;color:#7a90b0">Optional</span>
-                <div style="position:relative;width:40px;height:22px">
-                  <input type="checkbox" id="dhan-psych-toggle" style="opacity:0;position:absolute;width:100%;height:100%;cursor:pointer;margin:0;z-index:1">
-                  <div id="dhan-psych-track" style="position:absolute;inset:0;border-radius:11px;background:#1e2d45;transition:background 0.2s;border:1px solid #2a3f5a"></div>
-                  <div id="dhan-psych-thumb" style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#3a4f6a;transition:all 0.2s"></div>
+              <label class="dhan-toggle-wrap">
+                <span class="dhan-toggle-label" id="dhan-psych-toggle-label" style="color:#7a90b0">Off</span>
+                <div class="dhan-toggle-track">
+                  <input type="checkbox" id="dhan-psych-toggle">
+                  <div class="dhan-toggle-bg" id="dhan-psych-track"></div>
+                  <div class="dhan-toggle-thumb" id="dhan-psych-thumb"></div>
                 </div>
               </label>
             </div>
 
-            <div id="dhan-psych-fields" style="display:none">
+            <div id="dhan-psych-fields" style="display:none;padding:1.1rem">
               ${psychHTML('dhan-', false)}
             </div>
 
-            <div id="dhan-psych-off-msg" style="padding:0.75rem;background:#080c14;border-radius:8px;border:1px solid #1e2d45;font-size:0.78rem;color:#3a4f6a;text-align:center">
-              📅 Psychology optional for historical syncs<br>
-              <span style="font-size:0.68rem">Toggle on to log emotions for today's trades</span>
+            <div id="dhan-psych-off-msg" style="padding:1.25rem;text-align:center">
+              <div style="font-size:1.5rem;margin-bottom:0.5rem;opacity:0.35">📅</div>
+              <div style="font-size:0.8rem;font-weight:600;color:#3a4f6a;margin-bottom:0.25rem">Psychology off</div>
+              <div style="font-size:0.7rem;color:#2a3f5a;line-height:1.55">
+                Best for historical imports.<br>
+                Toggle on when syncing today's trades.
+              </div>
             </div>
           </div>
 
-          <!-- Date hint card -->
-          <div class="card" style="padding:0.875rem;background:#080c14">
-            <div style="font-size:0.75rem;font-weight:600;color:#c0cce0;margin-bottom:0.5rem">💡 When to use Psychology</div>
-            <div style="font-size:0.72rem;color:#7a90b0;line-height:1.7">
-              <div style="display:flex;gap:0.5rem;margin-bottom:0.25rem">
-                <span style="color:#22c55e">✓</span>
-                <span><strong style="color:#c0cce0">Today's trades</strong> — Turn ON psychology to log emotions &amp; mistakes</span>
+          <!-- When to use psychology -->
+          <div style="padding:0.875rem;background:#080c14;border:1px solid #1e2d45;border-radius:12px">
+            <div style="font-size:0.72rem;font-weight:700;color:#c0cce0;margin-bottom:0.625rem;display:flex;align-items:center;gap:0.375rem">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+              When to enable psychology
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.4rem">
+              <div style="display:flex;gap:0.5rem;font-size:0.72rem">
+                <span style="color:#22c55e;flex-shrink:0">✓</span>
+                <span style="color:#7a90b0"><strong style="color:#c0cce0">Today's trades</strong> — turn ON to log emotions &amp; mistakes</span>
               </div>
-              <div style="display:flex;gap:0.5rem">
-                <span style="color:#3a4f6a">–</span>
-                <span><strong style="color:#7a90b0">Historical data</strong> — Keep OFF, just import trade records</span>
+              <div style="display:flex;gap:0.5rem;font-size:0.72rem">
+                <span style="color:#3a4f6a;flex-shrink:0">–</span>
+                <span style="color:#3a4f6a"><strong style="color:#475569">Historical</strong> — keep OFF, just import records</span>
               </div>
+            </div>
+          </div>
+
+          <!-- How-to steps -->
+          <div class="dhan-steps">
+            <div class="dhan-steps-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+              How to get your Dhan credentials
+            </div>
+            <div class="dhan-step">
+              <div class="dhan-step-num">1</div>
+              <div class="dhan-step-text">Login at <a href="https://web.dhan.co" target="_blank">web.dhan.co</a> or open the Dhan app</div>
+            </div>
+            <div class="dhan-step">
+              <div class="dhan-step-num">2</div>
+              <div class="dhan-step-text">Go to <strong>My Profile → Access Token</strong></div>
+            </div>
+            <div class="dhan-step">
+              <div class="dhan-step-num">3</div>
+              <div class="dhan-step-text">Copy your <strong>Client ID</strong> and click <strong>Generate Token</strong></div>
+            </div>
+            <div class="dhan-step">
+              <div class="dhan-step-num">4</div>
+              <div class="dhan-step-text">Paste both above and click Sync — we fetch <strong>F&amp;O trades only</strong>, read-only</div>
             </div>
           </div>
         </div>
       </div>
     </div>
   `;
+
+  // ── Show/hide token ──────────────────────────────────────────────────────────
+  const tokenInput = container.querySelector('#dhan-token');
+  const eyeBtn     = container.querySelector('#dhan-eye');
+  const eyeIcon    = container.querySelector('#dhan-eye-icon');
+  let tokenVisible = false;
+  eyeBtn.addEventListener('click', () => {
+    tokenVisible = !tokenVisible;
+    tokenInput.type = tokenVisible ? 'text' : 'password';
+    eyeIcon.innerHTML = tokenVisible
+      ? `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`
+      : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+  });
+
+  // ── Quick date chips ─────────────────────────────────────────────────────────
+  const fromInput = container.querySelector('#from-date');
+  const toInput   = container.querySelector('#to-date');
+  container.querySelectorAll('.dhan-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      container.querySelectorAll('.dhan-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      const days = parseInt(chip.dataset.days);
+      const to   = new Date();
+      const from = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000);
+      toInput.value   = to.toISOString().slice(0, 10);
+      fromInput.value = from.toISOString().slice(0, 10);
+      checkDateAndSetPsych();
+    });
+  });
+  // Deselect chip when dates changed manually
+  [fromInput, toInput].forEach(inp => {
+    inp.addEventListener('change', () => {
+      container.querySelectorAll('.dhan-chip').forEach(c => c.classList.remove('active'));
+      checkDateAndSetPsych();
+    });
+  });
 
   // ── Psychology smart toggle ────────────────────────────────────────────────
   const psychToggle = container.querySelector('#dhan-psych-toggle');
@@ -1089,100 +1464,110 @@ function renderDhan(container) {
     if (on) {
       psychFields.style.display = 'block';
       psychOffMsg.style.display = 'none';
-      psychTrack.style.background = '#7c3aed';
+      psychTrack.style.background  = '#7c3aed';
       psychTrack.style.borderColor = '#a855f7';
-      psychThumb.style.background = '#fff';
-      psychThumb.style.left = '21px';
-      toggleLabel.textContent = 'On';
-      toggleLabel.style.color = '#c084fc';
+      psychThumb.style.background  = '#fff';
+      psychThumb.style.left        = '21px';
+      toggleLabel.textContent      = 'On';
+      toggleLabel.style.color      = '#c084fc';
     } else {
       psychFields.style.display = 'none';
       psychOffMsg.style.display = 'block';
-      psychTrack.style.background = '#1e2d45';
+      psychTrack.style.background  = '#1e2d45';
       psychTrack.style.borderColor = '#2a3f5a';
-      psychThumb.style.background = '#3a4f6a';
-      psychThumb.style.left = '3px';
-      toggleLabel.textContent = 'Optional';
-      toggleLabel.style.color = '#7a90b0';
+      psychThumb.style.background  = '#3a4f6a';
+      psychThumb.style.left        = '3px';
+      toggleLabel.textContent      = 'Off';
+      toggleLabel.style.color      = '#7a90b0';
     }
   }
 
-  // Auto-detect: if toDate is today, turn psychology ON by default
-  const toDateInput   = container.querySelector('#to-date');
-  const fromDateInput = container.querySelector('#from-date');
-
   function checkDateAndSetPsych() {
-    const isToday = toDateInput.value === today;
+    const isToday = toInput.value === today;
     setDhanPsychToggle(isToday);
   }
   checkDateAndSetPsych();
-  toDateInput.addEventListener('change', checkDateAndSetPsych);
-
   psychToggle.addEventListener('change', () => setDhanPsychToggle(psychToggle.checked));
-
   bindPsych(container, 'dhan-');
 
-  // ── Sync ───────────────────────────────────────────────────────────────────
-  container.querySelector('#dhan-btn').addEventListener('click', async () => {
-    const btn      = container.querySelector('#dhan-btn');
-    const resultEl = container.querySelector('#dhan-result');
-    const clientId = container.querySelector('#dhan-client-id').value.trim();
-    const token    = container.querySelector('#dhan-token').value.trim();
+  // ── Sync ──────────────────────────────────────────────────────────────────
+  const btn      = container.querySelector('#dhan-btn');
+  const resultEl = container.querySelector('#dhan-result');
 
+  btn.addEventListener('click', async () => {
+    const clientId = container.querySelector('#dhan-client-id').value.trim();
+    const token    = tokenInput.value.trim();
     if (!clientId) return toast('Client ID is required', 'error');
     if (!token)    return toast('Access Token is required', 'error');
 
     const psychOn = psychToggle.checked;
     let psych = null;
-
     if (psychOn) {
       psych = getPsychPayload(container, 'dhan-');
       if (!psych) {
-        toast('Please select Emotion Before Trade, or turn off Psychology for historical syncs', 'error');
+        toast('Please select Emotion Before Trade, or turn off Psychology', 'error');
         container.querySelector('#dhan-psych-emotion-before')?.focus();
         return;
       }
     }
 
-    btn.textContent = 'Syncing…'; btn.disabled = true; resultEl.style.display = 'none';
+    btn.innerHTML = `
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+           style="animation:spin 1s linear infinite">
+        <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-opacity="0.25"/>
+        <path d="M21 12a9 9 0 00-9-9"/>
+      </svg>
+      Syncing…`;
+    btn.disabled = true;
+    resultEl.style.display = 'none';
 
     const strategy = container.querySelector('#dhan-strategy').value;
     const notes    = container.querySelector('#dhan-notes').value.trim();
 
     try {
       const res = await api.post('/trades/import/broker', {
-        broker:      'dhan',
-        clientId,
-        accessToken: token,
-        fromDate:    fromDateInput.value,
-        toDate:      toDateInput.value,
-        strategy,
-        notes,
+        broker: 'dhan', clientId, accessToken: token,
+        fromDate: fromInput.value, toDate: toInput.value,
+        strategy, notes,
       });
+
       if (psych && res.tradeIds?.length) {
-        btn.textContent = 'Saving psychology…';
+        btn.innerHTML = '🧠 Saving psychology…';
         await applyPsychToTrades(res.tradeIds, psych);
       }
+
       resultEl.style.display = 'block';
       resultEl.innerHTML = `
-        <div style="padding:0.875rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px">
-          <div style="color:#22c55e;font-weight:600;font-size:0.875rem;margin-bottom:4px">✓ ${res.message}</div>
-          <div style="font-size:0.75rem;color:#7a90b0">
-            Closed: ${res.closed || 0} · Open: ${res.open || 0}
-            ${strategy ? ` · Strategy: <strong style="color:#c0cce0">${strategy}</strong>` : ''}
+        <div class="dhan-result-ok">
+          <div class="dhan-result-title" style="color:#22c55e;display:flex;align-items:center;gap:0.4rem">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            ${res.message}
           </div>
-          ${psych ? `<div style="font-size:0.72rem;color:#c084fc;margin-top:4px">🧠 Psychology logged for all trades</div>` : ''}
+          <div class="dhan-result-sub">
+            Closed: <strong style="color:#c0cce0">${res.closed || 0}</strong>
+            &nbsp;·&nbsp; Open: <strong style="color:#c0cce0">${res.open || 0}</strong>
+            ${res.skipped ? `&nbsp;·&nbsp; <span style="color:#eab308">${res.skipped} skipped</span>` : ''}
+            ${strategy ? `&nbsp;·&nbsp; Strategy: <strong style="color:#c0cce0">${strategy}</strong>` : ''}
+            ${psych ? `<div style="color:#c084fc;margin-top:4px">🧠 Psychology logged for all trades</div>` : ''}
+          </div>
         </div>`;
       setTimeout(() => navigate('#trades'), 1800);
     } catch (err) {
       resultEl.style.display = 'block';
       resultEl.innerHTML = `
-        <div style="padding:0.875rem;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px">
-          <div style="color:#ef4444;font-weight:600;font-size:0.875rem;margin-bottom:4px">Sync failed</div>
-          <div style="font-size:0.78rem;color:#c0cce0">${err.message}</div>
-          <div style="font-size:0.7rem;color:#3a4f6a;margin-top:6px">Check: correct Client ID? Token expired? Date range has F&amp;O trades?</div>
+        <div class="dhan-result-err">
+          <div class="dhan-result-title" style="color:#ef4444">Sync failed</div>
+          <div class="dhan-result-sub">
+            ${err.message}
+            <div style="margin-top:6px;color:#3a4f6a">Check: correct Client ID? Token expired? Date range has F&amp;O trades?</div>
+          </div>
         </div>`;
-      btn.textContent = 'Sync Trades →'; btn.disabled = false;
+      btn.innerHTML = `
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+        </svg>
+        Sync Trades from Dhan`;
+      btn.disabled = false;
     }
   });
 }
