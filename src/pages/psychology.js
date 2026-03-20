@@ -5,8 +5,16 @@ let charts = {};
 
 export async function renderPsychology(container) {
   container.innerHTML = `
-    <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;max-width:1200px" class="fade-up">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:0.75rem">
+    <style>
+      .ps-grid-2{display:grid;grid-template-columns:1fr;gap:1rem}
+      @media(min-width:640px){.ps-grid-2{grid-template-columns:1fr 1fr}}
+      .ps-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:0.75rem}
+      .ps-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:0.625rem}
+      @media(min-width:480px){.ps-cards{grid-template-columns:repeat(3,1fr)}}
+      @media(min-width:900px){.ps-cards{grid-template-columns:repeat(7,1fr)}}
+    </style>
+    <div style="padding:1rem;display:flex;flex-direction:column;gap:1rem;max-width:1200px" class="fade-up">
+      <div class="ps-header">
         <div>
           <div style="font-size:1.25rem;font-weight:700;color:#e8eeff;display:flex;align-items:center;gap:0.5rem">🧠 Psychology Analytics</div>
           <div style="font-size:0.78rem;color:#7a90b0;margin-top:2px">Understand your behavioural patterns and emotional trading mistakes</div>
@@ -22,9 +30,9 @@ export async function renderPsychology(container) {
       <div id="psych-loading" style="text-align:center;padding:3rem;color:#3a4f6a;font-size:0.85rem">Loading psychology data…</div>
 
       <div id="psych-content" style="display:none;flex-direction:column;gap:1.25rem">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.75rem" id="psych-cards"></div>
+        <div class="ps-cards" id="psych-cards"></div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="ps-grid-2">
           <div class="card" style="min-width:0">
             <div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">Win Rate by Emotion Before Trade</div>
             <div style="position:relative;height:220px;width:100%">
@@ -41,7 +49,7 @@ export async function renderPsychology(container) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="ps-grid-2">
           <div class="card" style="min-width:0">
             <div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">P&amp;L by Emotion After Trade</div>
             <div style="position:relative;height:200px;width:100%">
@@ -147,7 +155,7 @@ function renderRiskVsActual(el, rm, psychData) {
       <div style="font-weight:600;font-size:0.82rem;color:#818cf8;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem">
         🛡️ Risk Management vs Actual Performance
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.75rem">
         ${[
           {
             label:   'Max Loss Per Trade Limit',

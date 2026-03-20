@@ -5,8 +5,15 @@ let charts = {};
 
 export async function renderAnalytics(container) {
   container.innerHTML = `
-    <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;max-width:1200px" class="fade-up">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem">
+    <style>
+      .an-grid-2{display:grid;grid-template-columns:1fr;gap:1rem}
+      @media(min-width:640px){.an-grid-2{grid-template-columns:1fr 1fr}}
+      .an-chart-daily{display:grid;grid-template-columns:1fr;gap:1rem}
+      @media(min-width:700px){.an-chart-daily{grid-template-columns:1fr 260px}}
+      .an-period-wrap{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:0.75rem}
+    </style>
+    <div style="padding:1rem;display:flex;flex-direction:column;gap:1rem;max-width:1200px" class="fade-up">
+      <div class="an-period-wrap">
         <div>
           <div style="font-size:1.25rem;font-weight:700;color:#e8eeff">Analytics</div>
           <div style="font-size:0.78rem;color:#7a90b0;margin-top:2px">Performance breakdown of your options trades</div>
@@ -20,7 +27,7 @@ export async function renderAnalytics(container) {
         <div class="card" style="grid-column:1/-1;text-align:center;color:#3a4f6a;font-size:0.82rem;padding:1.5rem">Loading…</div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 260px;gap:1rem">
+      <div class="an-chart-daily">
         <div class="card" style="min-width:0">
           <div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">Daily P&L</div>
           <div style="position:relative;height:200px;width:100%">
@@ -45,7 +52,7 @@ export async function renderAnalytics(container) {
         <div id="cumulative-empty" style="display:none;height:180px;align-items:center;justify-content:center;color:#3a4f6a;font-size:0.8rem">No data yet</div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div class="an-grid-2">
         <div class="card"><div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">By Underlying</div><div id="by-symbol"></div></div>
         <div class="card"><div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">By Underlying Detail</div><div id="by-symbol-extra" style="display:none"></div></div>
       </div>

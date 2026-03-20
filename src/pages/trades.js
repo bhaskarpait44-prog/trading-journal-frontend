@@ -39,7 +39,28 @@ const MISTAKE_TAGS = [
 
 export async function renderTrades(container) {
   container.innerHTML = `
-    <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem" class="fade-up">
+    <style>
+      @media(max-width:767px){.tb-table-wrap{display:none!important}.tb-cards{display:flex!important}#trades-pagination-bar{left:0!important}}
+      .tb-cards{display:none;flex-direction:column;gap:0.5rem}
+      .tb-card{background:#0a1220;border:1px solid #1e2d45;border-radius:12px;padding:0.875rem;transition:border-color 0.15s}
+      .tb-card:hover{border-color:#2a3f5a}
+      .tb-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem}
+      .tb-card-sym{font-size:0.8rem;font-weight:700;color:#c0cce0;font-family:'JetBrains Mono',monospace;word-break:break-all}
+      .tb-card-pnl{font-size:1rem;font-weight:800;font-family:'JetBrains Mono',monospace;text-align:right;flex-shrink:0}
+      .tb-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:0.3rem 0.75rem;margin-bottom:0.5rem}
+      .tb-card-meta-item{font-size:0.65rem;color:#3a4f6a}
+      .tb-card-meta-item strong{color:#7a90b0;font-weight:500}
+      .tb-card-actions{display:flex;gap:0.375rem;flex-wrap:wrap;padding-top:0.5rem;border-top:1px solid #0d1524}
+      .tb-act{padding:0.3rem 0.7rem;border-radius:6px;border:1px solid #1e2d45;background:transparent;color:#7a90b0;font-size:0.65rem;font-weight:500;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap}
+      .tb-act:hover{border-color:#2a3f5a;color:#c0cce0;background:#0d1524}
+      .tb-act.g:hover{border-color:rgba(34,197,94,0.4);color:#22c55e;background:rgba(34,197,94,0.06)}
+      .tb-act.r:hover{border-color:rgba(239,68,68,0.4);color:#ef4444;background:rgba(239,68,68,0.06)}
+      .tb-badge{font-size:0.58rem;padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap}
+      .tb-filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem}
+      @media(min-width:640px){.tb-filter-grid{grid-template-columns:1fr 1fr 1fr}}
+      @media(min-width:900px){.tb-filter-grid{grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;align-items:end}}
+    </style>
+    <div style="padding:1rem;display:flex;flex-direction:column;gap:1rem;padding-bottom:4rem" class="fade-up">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem">
         <div>
           <h1 class="page-title">Trade Book</h1>
@@ -58,7 +79,7 @@ export async function renderTrades(container) {
       </div>
 
       <!-- Filters -->
-      <div class="card" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
+      <div style="background:#0a1220;border:1px solid #1e2d45;border-radius:12px;padding:0.875rem"><div class="tb-filter-grid">
         <div class="field" style="flex:1;min-width:140px">
           <label>Search symbol</label>
           <input class="input" id="f-symbol" placeholder="NIFTY, BANKNIFTY…" value="${filters.symbol}">
@@ -88,8 +109,8 @@ export async function renderTrades(container) {
           <label>To date</label>
           <input class="input" type="date" id="f-to" value="${filters.to}">
         </div>
-        <button class="btn btn-secondary btn-sm" id="clear-btn" style="margin-bottom:2px">Clear</button>
-      </div>
+        <div class="field" style="display:flex;align-items:flex-end"><button class="btn btn-secondary btn-sm" id="clear-btn" style="width:100%">Clear</button></div>
+      </div></div>
 
       <div id="trades-wrap"></div>
     </div>
@@ -735,7 +756,7 @@ function renderTable(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelet
   const to   = Math.min(page * pageSize, total);
 
   wrap.innerHTML = `
-    <div style="overflow-x:auto;overflow-y:visible">
+    <div class="tb-table-wrap" style="overflow-x:auto;overflow-y:visible">
       <table class="trade-table">
         <thead>
           <tr>
@@ -954,6 +975,9 @@ function renderTable(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelet
     });
   });
 
+  // ── Mobile cards ─────────────────────────────────────────────────────────────
+  renderMobileCards(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelete);
+
   // Close menu on outside click — use setTimeout to let the button click finish first
   document.addEventListener('click', function outsideClick(e) {
     if (!floatMenu.contains(e.target)) {
@@ -964,4 +988,92 @@ function renderTable(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelet
 
   // Close on scroll
   window.addEventListener('scroll', closeMenu, { once: true, passive: true });
+}
+// ── Mobile card renderer ──────────────────────────────────────────────────────
+function renderMobileCards(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelete) {
+  // Find or create the mobile cards container
+  let mobileEl = wrap.querySelector('#tb-mobile-cards');
+  if (!mobileEl) {
+    mobileEl = document.createElement('div');
+    mobileEl.id = 'tb-mobile-cards';
+    mobileEl.className = 'tb-cards';
+    wrap.appendChild(mobileEl);
+  }
+
+  if (!trades.length) { mobileEl.innerHTML = ''; return; }
+
+  mobileEl.innerHTML = trades.map(t => {
+    const isOpen   = t.status === 'OPEN';
+    const pnlColor = (t.netPnl || 0) >= 0 ? '#22c55e' : '#ef4444';
+    const sym      = t.symbol || t.underlying || '—';
+    const isCE     = t.optionType === 'CE';
+    const isBuy    = t.tradeType === 'BUY';
+
+    const statusBg = isOpen
+      ? 'background:rgba(234,179,8,0.12);color:#eab308'
+      : t.status === 'EXPIRED'
+        ? 'background:rgba(107,114,128,0.15);color:#6b7280'
+        : (t.netPnl||0) >= 0
+          ? 'background:rgba(34,197,94,0.1);color:#22c55e'
+          : 'background:rgba(239,68,68,0.1);color:#ef4444';
+
+    return `
+      <div class="tb-card" data-id="${t._id}">
+        <div class="tb-card-top">
+          <div style="min-width:0">
+            <div class="tb-card-sym">${sym}</div>
+            <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:4px">
+              ${t.optionType ? `<span class="tb-badge" style="background:${isCE?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)'};color:${isCE?'#22c55e':'#ef4444'}">${t.optionType}</span>` : ''}
+              ${t.tradeType  ? `<span class="tb-badge" style="background:${isBuy?'rgba(59,130,246,0.12)':'rgba(168,85,247,0.12)'};color:${isBuy?'#60a5fa':'#c084fc'}">${t.tradeType}</span>` : ''}
+              <span class="tb-badge" style="${statusBg}">${isOpen ? 'OPEN' : t.status}</span>
+              ${t.strategy   ? `<span class="tb-badge" style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2)">${t.strategy}</span>` : ''}
+            </div>
+          </div>
+          <div class="tb-card-pnl">
+            ${isOpen
+              ? `<span style="font-size:0.72rem;color:#eab308">Active</span>`
+              : `<span style="color:${pnlColor}">${fmtINR(t.netPnl||0,true)}</span>`}
+          </div>
+        </div>
+
+        <div class="tb-card-meta">
+          <div class="tb-card-meta-item"><strong>Strike</strong> ₹${(t.strikePrice||0).toLocaleString('en-IN')}</div>
+          <div class="tb-card-meta-item"><strong>Entry</strong> ₹${t.entryPrice}</div>
+          <div class="tb-card-meta-item"><strong>Exit</strong> ${t.exitPrice ? `₹${t.exitPrice}` : '—'}</div>
+          <div class="tb-card-meta-item"><strong>Qty</strong> ${t.quantity}L × ${t.lotSize}</div>
+          <div class="tb-card-meta-item"><strong>Expiry</strong> ${fmtDate(t.expiryDate)}</div>
+          <div class="tb-card-meta-item"><strong>Date</strong> ${fmtDate(t.entryDate)}</div>
+        </div>
+
+        <div class="tb-card-actions">
+          ${isOpen ? `<button class="tb-act g mc-close" data-id="${t._id}">✓ Close</button>` : ''}
+          <button class="tb-act mc-strat" data-id="${t._id}">🎯 Strategy</button>
+          <button class="tb-act mc-psych" data-id="${t._id}">🧠 Psychology</button>
+          <button class="tb-act r mc-del"   data-id="${t._id}">🗑 Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Wire card actions
+  mobileEl.querySelectorAll('.mc-close').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const trade = trades.find(t => t._id === btn.dataset.id);
+      if (trade) onClose(trade);
+    });
+  });
+  mobileEl.querySelectorAll('.mc-strat').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const trade = trades.find(t => t._id === btn.dataset.id);
+      if (trade) onEditStrategy(trade);
+    });
+  });
+  mobileEl.querySelectorAll('.mc-psych').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const trade = trades.find(t => t._id === btn.dataset.id);
+      if (trade) onEditPsych(trade);
+    });
+  });
+  mobileEl.querySelectorAll('.mc-del').forEach(btn => {
+    btn.addEventListener('click', () => onDelete(btn.dataset.id));
+  });
 }
