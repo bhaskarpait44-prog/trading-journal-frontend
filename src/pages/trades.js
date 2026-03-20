@@ -743,23 +743,30 @@ export async function renderTrades(container) {
 }
 
 // ── Table renderer ────────────────────────────────────────────────────────────
+// ── Table renderer ────────────────────────────────────────────────────────────
 function renderTable(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelete, pagination) {
   if (!trades.length) {
-    wrap.innerHTML = `<div class="card empty-state">No trades found. <a href="#add-trade" style="color:#3b82f6">Add one →</a></div>`;
+    wrap.innerHTML = `<div class="card empty-state">No trades found. <a href="#add-trade" style="color:#3b82f6">Add one</a></div>`;
+    document.getElementById('bulk-action-bar')?.remove();
     return;
   }
 
   const { page, pages, total, pageSize, onPage } = pagination;
-
-  // Pagination info
   const from = (page - 1) * pageSize + 1;
   const to   = Math.min(page * pageSize, total);
 
   wrap.innerHTML = `
+    <style>
+      .cb-row { cursor:pointer; }
+      .cb-row:hover td { background:rgba(255,255,255,0.015); }
+      .cb-row.selected td { background:rgba(59,130,246,0.07); }
+      .trade-cb, .select-all-cb { width:15px; height:15px; cursor:pointer; accent-color:#3b82f6; flex-shrink:0; }
+    </style>
     <div class="tb-table-wrap" style="overflow-x:auto;overflow-y:visible">
       <table class="trade-table">
         <thead>
           <tr>
+            <th style="width:32px;padding-right:0"><input type="checkbox" class="select-all-cb" id="select-all-cb" title="Select all"></th>
             <th>Symbol</th><th>Type</th><th>Strike</th><th>Expiry</th>
             <th>Qty</th><th>Entry</th><th>Exit</th><th>Status</th>
             <th>Strategy</th><th>Net P&L</th><th>Date</th>
@@ -768,227 +775,288 @@ function renderTable(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelet
         </thead>
         <tbody>
           ${trades.map(t => `
-            <tr>
-              <td><span class="sym">${t.symbol || t.underlying}</span></td>
+            <tr class="cb-row" data-id="${t._id}" data-status="${t.status}">
+              <td style="padding-right:0">
+                <input type="checkbox" class="trade-cb" data-id="${t._id}" data-status="${t.status}">
+              </td>
+              <td><span class="sym sym-select" data-sym="${t.underlying || t.symbol}" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" title="Select all ${t.underlying || t.symbol} trades">${t.symbol || t.underlying}</span></td>
               <td><div class="pill-group">${badge(t.tradeType?.toLowerCase(), t.tradeType)} ${badge(t.optionType?.toLowerCase(), t.optionType)}</div></td>
-              <td class="mono muted">₹${(t.strikePrice||0).toLocaleString('en-IN')}</td>
+              <td class="mono muted">&#8377;${(t.strikePrice||0).toLocaleString('en-IN')}</td>
               <td class="muted" style="font-size:0.72rem;white-space:nowrap">${fmtDate(t.expiryDate)}</td>
               <td class="mono muted">${t.quantity}L</td>
-              <td class="mono">₹${t.entryPrice}</td>
-              <td class="mono muted">${t.exitPrice ? `₹${t.exitPrice}` : '—'}</td>
+              <td class="mono">&#8377;${t.entryPrice}</td>
+              <td class="mono muted">${t.exitPrice ? '&#8377;' + t.exitPrice : '&#8212;'}</td>
               <td>${badge(t.status?.toLowerCase(), t.status)}</td>
-              <td>
-                ${t.strategy
-                  ? `<span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:rgba(59,130,246,0.12);color:#60a5fa;border:1px solid rgba(59,130,246,0.25);white-space:nowrap">${t.strategy}</span>`
-                  : `<span class="muted" style="font-size:0.7rem">—</span>`}
-              </td>
-              <td>${t.status !== 'OPEN' ? pnlSpan(t.netPnl) : '<span class="muted">—</span>'}</td>
+              <td>${t.strategy
+                ? '<span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:rgba(59,130,246,0.12);color:#60a5fa;border:1px solid rgba(59,130,246,0.25);white-space:nowrap">' + t.strategy + '</span>'
+                : '<span class="muted" style="font-size:0.7rem">&#8212;</span>'}</td>
+              <td>${t.status !== 'OPEN' ? pnlSpan(t.netPnl) : '<span class="muted">&#8212;</span>'}</td>
               <td style="font-size:0.72rem;color:#3a4f6a;white-space:nowrap">${fmtDate(t.entryDate)}</td>
               <td>
                 <button class="three-dot-btn" data-id="${t._id}"
-                  style="background:none;border:none;color:#3a4f6a;cursor:pointer;padding:0.25rem 0.5rem;
-                         border-radius:6px;font-size:1.1rem;line-height:1;transition:all 0.15s;position:relative;z-index:1"
+                  style="background:none;border:none;color:#3a4f6a;cursor:pointer;padding:0.25rem 0.5rem;border-radius:6px;font-size:1.1rem;line-height:1;transition:all 0.15s;position:relative;z-index:1"
                   onmouseenter="this.style.background='#1e2d45';this.style.color='#c0cce0'"
-                  onmouseleave="this.style.background='none';this.style.color='#3a4f6a'">⋮</button>
+                  onmouseleave="this.style.background='none';this.style.color='#3a4f6a'">&#8942;</button>
               </td>
-            </tr>
-          `).join('')}
+            </tr>`).join('')}
         </tbody>
       </table>
     </div>
-
-    <!-- Floating dropdown (rendered once, moved by JS) -->
-    <div id="floating-menu" style="display:none;position:fixed;z-index:9999;
-         background:#0d1824;border:1px solid #2a3f5a;border-radius:8px;
-         min-width:175px;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden">
-    </div>
+    <div id="floating-menu" style="display:none;position:fixed;z-index:9999;background:#0d1824;border:1px solid #2a3f5a;border-radius:8px;min-width:175px;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden"></div>
   `;
 
-  // ── Sticky pagination bar (rendered outside wrap, fixed to bottom) ──────────
-  // Remove any existing pagination bar first
-  const existingBar = document.getElementById('trades-pagination-bar');
-  if (existingBar) existingBar.remove();
+  // ── Bulk action bar ────────────────────────────────────────────────────────
+  document.getElementById('bulk-action-bar')?.remove();
+  const bulkBar = document.createElement('div');
+  bulkBar.id = 'bulk-action-bar';
+  bulkBar.style.cssText = 'position:fixed;bottom:0;left:220px;right:0;z-index:50;background:#0a1220;border-top:2px solid rgba(59,130,246,0.4);display:none;align-items:center;justify-content:space-between;padding:0.625rem 1.5rem;gap:1rem;flex-wrap:wrap;box-shadow:0 -4px 24px rgba(0,0,0,0.5)';
+  bulkBar.innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.75rem">
+      <div style="width:28px;height:28px;border-radius:8px;background:rgba(59,130,246,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      </div>
+      <span id="bulk-count" style="font-size:0.82rem;font-weight:700;color:#e8eeff"></span>
+      <button id="bulk-deselect" style="background:none;border:none;color:#3a4f6a;cursor:pointer;font-size:0.72rem;padding:0">Clear</button>
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <button id="bulk-close-btn" style="display:none;padding:0.4rem 0.875rem;border-radius:7px;border:1px solid rgba(34,197,94,0.35);background:rgba(34,197,94,0.1);color:#22c55e;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit">
+        Expire @ 0
+      </button>
+      <button id="bulk-strategy-btn" style="padding:0.4rem 0.875rem;border-radius:7px;border:1px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.1);color:#60a5fa;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit">
+        Tag Strategy
+      </button>
+      <button id="bulk-delete-btn" style="padding:0.4rem 0.875rem;border-radius:7px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#ef4444;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit">
+        Delete
+      </button>
+    </div>`;
+  document.body.appendChild(bulkBar);
 
+  // Bulk strategy modal
+  document.getElementById('bulk-strat-modal')?.remove();
+  const bulkStratModal = document.createElement('div');
+  bulkStratModal.id = 'bulk-strat-modal';
+  bulkStratModal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  const STRATS = ['Long Call','Long Put','Short Call','Short Put','Bull Call Spread','Bear Put Spread','Iron Condor','Straddle','Strangle','Butterfly','Scalp','Other'];
+  bulkStratModal.innerHTML = `
+    <div style="background:#0d1824;border:1px solid #2a3f5a;border-radius:14px;padding:1.5rem;width:90%;max-width:360px">
+      <div style="font-weight:700;font-size:0.95rem;color:#e8eeff;margin-bottom:0.25rem">Tag Strategy</div>
+      <div id="bulk-strat-count" style="font-size:0.75rem;color:#7a90b0;margin-bottom:1.25rem"></div>
+      <div class="field">
+        <label>Strategy</label>
+        <select class="input" id="bulk-strat-select">
+          <option value="">No strategy tag</option>
+          ${STRATS.map(s => '<option value="' + s + '">' + s + '</option>').join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:0.625rem;margin-top:1.25rem">
+        <button id="bulk-strat-cancel" style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid #1e2d45;background:transparent;color:#7a90b0;cursor:pointer;font-family:inherit;font-size:0.85rem">Cancel</button>
+        <button id="bulk-strat-confirm" style="flex:1;padding:0.6rem;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600">Apply</button>
+      </div>
+    </div>`;
+  document.body.appendChild(bulkStratModal);
+
+  // ── Selection state ────────────────────────────────────────────────────────
+  const selectedIds = new Set();
+
+  function getSelectedTrades() {
+    return [...selectedIds].map(id => trades.find(t => t._id === id)).filter(Boolean);
+  }
+
+  function updateBulkBar() {
+    const count   = selectedIds.size;
+    const hasOpen = getSelectedTrades().some(t => t.status === 'OPEN');
+    if (count === 0) { bulkBar.style.display = 'none'; return; }
+    bulkBar.style.display = 'flex';
+    bulkBar.querySelector('#bulk-count').textContent = count + ' trade' + (count > 1 ? 's' : '') + ' selected';
+    bulkBar.querySelector('#bulk-close-btn').style.display = hasOpen ? 'inline-flex' : 'none';
+  }
+
+  function toggleRow(id, checked) {
+    const row = wrap.querySelector('tr[data-id="' + id + '"]');
+    const cb  = wrap.querySelector('.trade-cb[data-id="' + id + '"]');
+    if (checked) { selectedIds.add(id); row?.classList.add('selected'); if (cb) cb.checked = true; }
+    else         { selectedIds.delete(id); row?.classList.remove('selected'); if (cb) cb.checked = false; }
+    const allCbs = wrap.querySelectorAll('.trade-cb');
+    const saCb   = wrap.querySelector('#select-all-cb');
+    if (saCb) {
+      saCb.indeterminate = selectedIds.size > 0 && selectedIds.size < allCbs.length;
+      saCb.checked       = selectedIds.size === allCbs.length && allCbs.length > 0;
+    }
+    updateBulkBar();
+  }
+
+  function clearSelection() {
+    [...selectedIds].forEach(id => toggleRow(id, false));
+    selectedIds.clear();
+    const saCb = wrap.querySelector('#select-all-cb');
+    if (saCb) { saCb.checked = false; saCb.indeterminate = false; }
+    updateBulkBar();
+  }
+
+  wrap.querySelector('#select-all-cb').addEventListener('change', function() {
+    wrap.querySelectorAll('.trade-cb').forEach(cb => toggleRow(cb.dataset.id, this.checked));
+  });
+  wrap.querySelectorAll('.trade-cb').forEach(cb => {
+    cb.addEventListener('change', () => toggleRow(cb.dataset.id, cb.checked));
+  });
+  // Single delegated listener on tbody — more reliable than per-row listeners
+  const tbody = wrap.querySelector('tbody');
+  if (tbody) {
+    tbody.addEventListener('click', e => {
+      if (e.target.closest('.three-dot-btn')) return;
+      if (e.target.classList.contains('trade-cb')) return;
+      if (e.target.classList.contains('sym-select')) return; // handled separately
+      const row = e.target.closest('.cb-row');
+      if (!row) return;
+      toggleRow(row.dataset.id, !selectedIds.has(row.dataset.id));
+    });
+  }
+
+  // Click symbol to select all rows with same underlying
+  wrap.querySelectorAll('.sym-select').forEach(sym => {
+    sym.addEventListener('click', e => {
+      e.stopPropagation();
+      const target = sym.dataset.sym;
+      const matchingRows = [...wrap.querySelectorAll('.cb-row')].filter(r => {
+        const t = trades.find(t => t._id === r.dataset.id);
+        return t && (t.underlying === target || t.symbol === target || (t.symbol || '').startsWith(target));
+      });
+      const allSelected = matchingRows.every(r => selectedIds.has(r.dataset.id));
+      matchingRows.forEach(r => toggleRow(r.dataset.id, !allSelected));
+    });
+  });
+
+  bulkBar.querySelector('#bulk-deselect').addEventListener('click', clearSelection);
+
+  // Bulk expire @ 0
+  bulkBar.querySelector('#bulk-close-btn').addEventListener('click', async () => {
+    const openT = getSelectedTrades().filter(t => t.status === 'OPEN');
+    if (!openT.length) return;
+    if (!confirm('Close ' + openT.length + ' open trade' + (openT.length > 1 ? 's' : '') + ' as EXPIRED at Rs 0?')) return;
+    const btn = bulkBar.querySelector('#bulk-close-btn');
+    btn.textContent = 'Closing...'; btn.disabled = true;
+    const today = new Date().toISOString().slice(0,10);
+    const res = await Promise.allSettled(openT.map(t => api.put('/trades/' + t._id, { exitPrice:0, exitDate:today, status:'EXPIRED', charges:t.charges||0 })));
+    const fail = res.filter(r => r.status === 'rejected').length;
+    toast(fail ? 'Closed ' + (openT.length - fail) + ', ' + fail + ' failed' : 'Expired ' + openT.length + ' trade' + (openT.length > 1 ? 's' : ''));
+    clearSelection(); btn.textContent = 'Expire @ 0'; btn.disabled = false;
+    onPage(page);
+  });
+
+  // Bulk tag strategy
+  bulkBar.querySelector('#bulk-strategy-btn').addEventListener('click', () => {
+    if (!selectedIds.size) return;
+    bulkStratModal.querySelector('#bulk-strat-count').textContent = 'Applying to ' + selectedIds.size + ' trade' + (selectedIds.size > 1 ? 's' : '');
+    bulkStratModal.style.display = 'flex';
+  });
+  bulkStratModal.querySelector('#bulk-strat-cancel').addEventListener('click', () => { bulkStratModal.style.display = 'none'; });
+  bulkStratModal.addEventListener('click', e => { if (e.target === bulkStratModal) bulkStratModal.style.display = 'none'; });
+  bulkStratModal.querySelector('#bulk-strat-confirm').addEventListener('click', async () => {
+    const strategy = bulkStratModal.querySelector('#bulk-strat-select').value;
+    const btn = bulkStratModal.querySelector('#bulk-strat-confirm');
+    btn.textContent = 'Saving...'; btn.disabled = true;
+    const ids = [...selectedIds];
+    const res = await Promise.allSettled(ids.map(id => api.put('/trades/' + id, { strategy })));
+    const fail = res.filter(r => r.status === 'rejected').length;
+    toast(fail ? 'Tagged ' + (ids.length - fail) + ', ' + fail + ' failed' : 'Strategy applied to ' + ids.length + ' trade' + (ids.length > 1 ? 's' : ''));
+    bulkStratModal.style.display = 'none'; btn.textContent = 'Apply'; btn.disabled = false;
+    clearSelection(); onPage(page);
+  });
+
+  // Bulk delete
+  bulkBar.querySelector('#bulk-delete-btn').addEventListener('click', async () => {
+    const count = selectedIds.size; if (!count) return;
+    if (!confirm('Delete ' + count + ' trade' + (count > 1 ? 's' : '') + '? Cannot be undone.')) return;
+    const btn = bulkBar.querySelector('#bulk-delete-btn');
+    btn.textContent = 'Deleting...'; btn.disabled = true;
+    const ids = [...selectedIds];
+    const res = await Promise.allSettled(ids.map(id => api.delete('/trades/' + id)));
+    const fail = res.filter(r => r.status === 'rejected').length;
+    toast(fail ? 'Deleted ' + (ids.length - fail) + ', ' + fail + ' failed' : 'Deleted ' + ids.length + ' trade' + (ids.length > 1 ? 's' : ''), fail ? 'error' : 'success');
+    clearSelection(); btn.textContent = 'Delete'; btn.disabled = false;
+    onPage(page);
+  });
+
+  // Cleanup on nav
+  const cleanupBulk = () => { bulkBar.remove(); bulkStratModal.remove(); window.removeEventListener('hashchange', cleanupBulk); };
+  window.addEventListener('hashchange', cleanupBulk);
+
+  // ── Pagination bar ─────────────────────────────────────────────────────────
+  document.getElementById('trades-pagination-bar')?.remove();
   if (pages > 1) {
-    const from = (page - 1) * pageSize + 1;
-    const to   = Math.min(page * pageSize, total);
-
-    // Clamp visible page numbers (show max 5 around current)
-    const maxVisible = 5;
-    let startP = Math.max(1, page - Math.floor(maxVisible / 2));
-    let endP   = Math.min(pages, startP + maxVisible - 1);
-    if (endP - startP < maxVisible - 1) startP = Math.max(1, endP - maxVisible + 1);
+    const maxV = 5;
+    let startP = Math.max(1, page - Math.floor(maxV / 2));
+    let endP   = Math.min(pages, startP + maxV - 1);
+    if (endP - startP < maxV - 1) startP = Math.max(1, endP - maxV + 1);
 
     const bar = document.createElement('div');
     bar.id = 'trades-pagination-bar';
-    bar.style.cssText = `
-      position: fixed;
-      bottom: 0; left: 220px; right: 0;
-      z-index: 40;
-      background: #0a0f1c;
-      border-top: 1px solid #1e2d45;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.625rem 1.5rem;
-      gap: 0.75rem;
-    `;
-    bar.innerHTML = `
-      <div style="font-size:0.75rem;color:#3a4f6a;white-space:nowrap">
-        Showing <strong style="color:#7a90b0">${from}–${to}</strong> of <strong style="color:#7a90b0">${total}</strong> trades
-      </div>
-      <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:nowrap">
-        <button class="pb-btn" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}
-          style="padding:0.35rem 0.75rem;border-radius:6px;border:1px solid #1e2d45;background:transparent;
-                 color:${page <= 1 ? '#2a3f5a' : '#7a90b0'};cursor:${page <= 1 ? 'default' : 'pointer'};
-                 font-size:0.78rem;font-family:inherit;transition:all 0.13s">
-          ← Prev
-        </button>
-        ${startP > 1 ? `<button class="pb-btn" data-page="1" style="padding:0.35rem 0.6rem;border-radius:6px;font-size:0.78rem;cursor:pointer;border:1px solid #1e2d45;background:transparent;color:#7a90b0;font-family:inherit">1</button>
-        ${startP > 2 ? `<span style="color:#3a4f6a;font-size:0.78rem;padding:0 0.2rem">…</span>` : ''}` : ''}
-        ${Array.from({ length: endP - startP + 1 }, (_, i) => startP + i).map(p => `
-          <button class="pb-btn" data-page="${p}"
-            style="padding:0.35rem 0.6rem;border-radius:6px;font-size:0.78rem;cursor:pointer;font-family:inherit;transition:all 0.13s;
-                   border:1px solid ${p === page ? 'rgba(59,130,246,0.5)' : '#1e2d45'};
-                   background:${p === page ? 'rgba(59,130,246,0.15)' : 'transparent'};
-                   color:${p === page ? '#60a5fa' : '#7a90b0'};
-                   font-weight:${p === page ? '600' : '400'}">
-            ${p}
-          </button>`).join('')}
-        ${endP < pages ? `
-        ${endP < pages - 1 ? `<span style="color:#3a4f6a;font-size:0.78rem;padding:0 0.2rem">…</span>` : ''}
-        <button class="pb-btn" data-page="${pages}" style="padding:0.35rem 0.6rem;border-radius:6px;font-size:0.78rem;cursor:pointer;border:1px solid #1e2d45;background:transparent;color:#7a90b0;font-family:inherit">${pages}</button>` : ''}
-        <button class="pb-btn" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}
-          style="padding:0.35rem 0.75rem;border-radius:6px;border:1px solid #1e2d45;background:transparent;
-                 color:${page >= pages ? '#2a3f5a' : '#7a90b0'};cursor:${page >= pages ? 'default' : 'pointer'};
-                 font-size:0.78rem;font-family:inherit;transition:all 0.13s">
-          Next →
-        </button>
-      </div>
-    `;
-
+    bar.style.cssText = 'position:fixed;bottom:0;left:220px;right:0;z-index:40;background:#0a0f1c;border-top:1px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;padding:0.625rem 1.5rem;gap:0.75rem';
+    const pageNums = Array.from({ length: endP - startP + 1 }, (_, i) => startP + i)
+      .map(p => '<button class="pb-btn" data-page="' + p + '" style="padding:0.35rem 0.6rem;border-radius:6px;font-size:0.78rem;cursor:pointer;font-family:inherit;border:1px solid ' + (p===page?'rgba(59,130,246,0.5)':'#1e2d45') + ';background:' + (p===page?'rgba(59,130,246,0.15)':'transparent') + ';color:' + (p===page?'#60a5fa':'#7a90b0') + ';font-weight:' + (p===page?'600':'400') + '">' + p + '</button>').join('');
+    bar.innerHTML = '<div style="font-size:0.75rem;color:#3a4f6a;white-space:nowrap">Showing <strong style="color:#7a90b0">' + from + '-' + to + '</strong> of <strong style="color:#7a90b0">' + total + '</strong></div>'
+      + '<div style="display:flex;align-items:center;gap:0.3rem">'
+      + '<button class="pb-btn" data-page="' + (page-1) + '" ' + (page<=1?'disabled':'') + ' style="padding:0.35rem 0.75rem;border-radius:6px;border:1px solid #1e2d45;background:transparent;color:' + (page<=1?'#2a3f5a':'#7a90b0') + ';cursor:' + (page<=1?'default':'pointer') + ';font-size:0.78rem;font-family:inherit">Prev</button>'
+      + (startP>1 ? '<button class="pb-btn" data-page="1" style="padding:0.35rem 0.6rem;border-radius:6px;font-size:0.78rem;cursor:pointer;border:1px solid #1e2d45;background:transparent;color:#7a90b0;font-family:inherit">1</button>' + (startP>2?'<span style="color:#3a4f6a;font-size:0.78rem">...</span>':'') : '')
+      + pageNums
+      + (endP<pages ? (endP<pages-1?'<span style="color:#3a4f6a;font-size:0.78rem">...</span>':'') + '<button class="pb-btn" data-page="' + pages + '" style="padding:0.35rem 0.6rem;border-radius:6px;font-size:0.78rem;cursor:pointer;border:1px solid #1e2d45;background:transparent;color:#7a90b0;font-family:inherit">' + pages + '</button>' : '')
+      + '<button class="pb-btn" data-page="' + (page+1) + '" ' + (page>=pages?'disabled':'') + ' style="padding:0.35rem 0.75rem;border-radius:6px;border:1px solid #1e2d45;background:transparent;color:' + (page>=pages?'#2a3f5a':'#7a90b0') + ';cursor:' + (page>=pages?'default':'pointer') + ';font-size:0.78rem;font-family:inherit">Next</button>'
+      + '</div>';
     document.body.appendChild(bar);
-
     bar.querySelectorAll('.pb-btn').forEach(btn => {
       if (btn.disabled) return;
-      btn.addEventListener('mouseover', () => { btn.style.background = '#131c30'; });
-      btn.addEventListener('mouseout',  () => {
-        const p = parseInt(btn.dataset.page);
-        btn.style.background = p === page ? 'rgba(59,130,246,0.15)' : 'transparent';
-      });
       btn.addEventListener('click', () => {
         const p = parseInt(btn.dataset.page);
-        if (!isNaN(p) && p >= 1 && p <= pages) onPage(p);
+        if (!isNaN(p) && p >= 1 && p <= pages) { clearSelection(); onPage(p); }
       });
     });
-
-    // Add bottom padding to wrap so table content isn't hidden behind bar
     wrap.style.paddingBottom = '3.5rem';
-
-    // Clean up bar when page navigates away
-    const cleanup = () => { bar.remove(); window.removeEventListener('hashchange', cleanup); };
-    window.addEventListener('hashchange', cleanup);
+    const pClean = () => { bar.remove(); window.removeEventListener('hashchange', pClean); };
+    window.addEventListener('hashchange', pClean);
   }
 
-  // ── Floating dropdown ──────────────────────────────────────────────────────
+  // ── Floating 3-dot dropdown ───────────────────────────────────────────────
   const floatMenu = wrap.querySelector('#floating-menu');
   let openId = null;
 
   function buildMenuHTML(trade) {
-    return `
-      ${trade.status === 'OPEN' ? `
-      <div class="fm-item fm-close" data-id="${trade._id}"
-        style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;
-               display:flex;align-items:center;gap:0.5rem;transition:background 0.1s"
-        onmouseenter="this.style.background='#1e2d45'" onmouseleave="this.style.background=''">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
-        Close Trade
-      </div>` : ''}
-      <div class="fm-item fm-strat" data-id="${trade._id}"
-        style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;
-               display:flex;align-items:center;gap:0.5rem;transition:background 0.1s"
-        onmouseenter="this.style.background='#1e2d45'" onmouseleave="this.style.background=''">
-        🎯 Edit Strategy
-      </div>
-      <div class="fm-item fm-psych" data-id="${trade._id}"
-        style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;
-               display:flex;align-items:center;gap:0.5rem;transition:background 0.1s"
-        onmouseenter="this.style.background='#1e2d45'" onmouseleave="this.style.background=''">
-        🧠 Edit Psychology
-      </div>
-      <div style="height:1px;background:#1e2d45"></div>
-      <div class="fm-item fm-del" data-id="${trade._id}"
-        style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#ef4444;
-               display:flex;align-items:center;gap:0.5rem;transition:background 0.1s"
-        onmouseenter="this.style.background='rgba(239,68,68,0.08)'" onmouseleave="this.style.background=''">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-        Delete Trade
-      </div>`;
+    return (trade.status === 'OPEN' ? '<div class="fm-item fm-close" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s" onmouseenter="this.style.background=\'#1e2d45\'" onmouseleave="this.style.background=\'\'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>Close Trade</div>' : '')
+      + '<div class="fm-item fm-strat" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s" onmouseenter="this.style.background=\'#1e2d45\'" onmouseleave="this.style.background=\'\'">🎯 Edit Strategy</div>'
+      + '<div class="fm-item fm-psych" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s" onmouseenter="this.style.background=\'#1e2d45\'" onmouseleave="this.style.background=\'\'">🧠 Edit Psychology</div>'
+      + '<div style="height:1px;background:#1e2d45"></div>'
+      + '<div class="fm-item fm-del" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#ef4444;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s" onmouseenter="this.style.background=\'rgba(239,68,68,0.08)\'" onmouseleave="this.style.background=\'\'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>Delete</div>';
   }
 
   function positionMenu(btn) {
     const rect = btn.getBoundingClientRect();
-    const menuH = 160; // approx height
-    // Check if there's space below, else open upward
-    const spaceBelow = window.innerHeight - rect.bottom;
-    if (spaceBelow < menuH) {
-      floatMenu.style.top  = (rect.top - menuH + window.scrollY) + 'px';
-    } else {
-      floatMenu.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
-    }
+    const menuH = 160;
+    floatMenu.style.top  = ((window.innerHeight - rect.bottom < menuH ? rect.top - menuH + window.scrollY : rect.bottom + window.scrollY + 4)) + 'px';
     floatMenu.style.right = (window.innerWidth - rect.right) + 'px';
     floatMenu.style.left  = 'auto';
   }
-
-  function closeMenu() {
-    floatMenu.style.display = 'none';
-    openId = null;
-  }
+  function closeMenu() { floatMenu.style.display = 'none'; openId = null; }
 
   wrap.querySelectorAll('.three-dot-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const id    = btn.dataset.id;
-      const trade = trades.find(t => t._id === id);
-      if (!trade) return;
-
+      const id = btn.dataset.id; const trade = trades.find(t => t._id === id); if (!trade) return;
       if (openId === id) { closeMenu(); return; }
-
-      openId = id;
-      floatMenu.innerHTML = buildMenuHTML(trade);
-      floatMenu.style.display = 'block';
-      positionMenu(btn);
-
-      // Wire up menu item clicks
-      floatMenu.querySelector('.fm-close')?.addEventListener('click', e => {
-        e.stopPropagation(); closeMenu(); onClose(trade);
-      });
-      floatMenu.querySelector('.fm-strat')?.addEventListener('click', e => {
-        e.stopPropagation(); closeMenu(); onEditStrategy(trade);
-      });
-      floatMenu.querySelector('.fm-psych')?.addEventListener('click', e => {
-        e.stopPropagation(); closeMenu(); onEditPsych(trade);
-      });
-      floatMenu.querySelector('.fm-del')?.addEventListener('click', e => {
-        e.stopPropagation(); closeMenu(); onDelete(id);
-      });
+      openId = id; floatMenu.innerHTML = buildMenuHTML(trade); floatMenu.style.display = 'block'; positionMenu(btn);
+      floatMenu.querySelector('.fm-close')?.addEventListener('click', e => { e.stopPropagation(); closeMenu(); onClose(trade); });
+      floatMenu.querySelector('.fm-strat')?.addEventListener('click', e => { e.stopPropagation(); closeMenu(); onEditStrategy(trade); });
+      floatMenu.querySelector('.fm-psych')?.addEventListener('click', e => { e.stopPropagation(); closeMenu(); onEditPsych(trade); });
+      floatMenu.querySelector('.fm-del')?.addEventListener('click', e => { e.stopPropagation(); closeMenu(); onDelete(id); });
     });
   });
-
-  // ── Mobile cards ─────────────────────────────────────────────────────────────
-  renderMobileCards(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelete);
-
-  // Close menu on outside click — use setTimeout to let the button click finish first
   document.addEventListener('click', function outsideClick(e) {
-    if (!floatMenu.contains(e.target)) {
-      closeMenu();
-      document.removeEventListener('click', outsideClick);
-    }
+    if (!floatMenu.contains(e.target)) { closeMenu(); document.removeEventListener('click', outsideClick); }
   });
-
-  // Close on scroll
   window.addEventListener('scroll', closeMenu, { once: true, passive: true });
+
+  // ── Mobile cards ──────────────────────────────────────────────────────────
+  renderMobileCards(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelete);
 }
+
 // ── Mobile card renderer ──────────────────────────────────────────────────────
 function renderMobileCards(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelete) {
   // Find or create the mobile cards container
