@@ -169,6 +169,57 @@ export async function renderAnalytics(container) {
         </div>
       </div>
 
+      <!-- ── DEEP ANALYTICS ── -->
+      <div id="deep-section" style="display:none;flex-direction:column;gap:1rem">
+
+        <!-- Section divider -->
+        <div style="display:flex;align-items:center;gap:0.75rem;padding:0.25rem 0">
+          <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,#1e2d45)"></div>
+          <div style="font-size:0.68rem;font-weight:700;color:#3a4f6a;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Deep Analytics</div>
+          <div style="height:1px;flex:1;background:linear-gradient(90deg,#1e2d45,transparent)"></div>
+        </div>
+
+        <!-- Streak cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.625rem" id="streak-cards"></div>
+
+        <!-- Holding time + Day of week -->
+        <div class="an-grid-2">
+          <div class="card" style="min-width:0">
+            <div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">
+              P&amp;L by Holding Time
+              <span id="avg-hold-badge" style="margin-left:0.5rem;font-size:0.65rem;padding:2px 8px;border-radius:10px;background:rgba(59,130,246,0.1);color:#60a5fa;font-weight:500"></span>
+            </div>
+            <div style="position:relative;height:180px;width:100%">
+              <canvas id="hold-chart" style="position:absolute;inset:0;width:100%!important;height:100%!important"></canvas>
+            </div>
+            <div id="hold-empty" style="display:none;height:180px;align-items:center;justify-content:center;color:#3a4f6a;font-size:0.8rem">Not enough data</div>
+          </div>
+          <div class="card" style="min-width:0">
+            <div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">P&amp;L by Day of Week</div>
+            <div style="position:relative;height:180px;width:100%">
+              <canvas id="dow-chart" style="position:absolute;inset:0;width:100%!important;height:100%!important"></canvas>
+            </div>
+            <div id="dow-empty" style="display:none;height:180px;align-items:center;justify-content:center;color:#3a4f6a;font-size:0.8rem">Not enough data</div>
+          </div>
+        </div>
+
+        <!-- Time of day + Charges impact -->
+        <div class="an-grid-2">
+          <div class="card" style="min-width:0">
+            <div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">P&amp;L by Time of Day (IST)</div>
+            <div style="position:relative;height:180px;width:100%">
+              <canvas id="tod-chart" style="position:absolute;inset:0;width:100%!important;height:100%!important"></canvas>
+            </div>
+            <div id="tod-empty" style="display:none;height:180px;align-items:center;justify-content:center;color:#3a4f6a;font-size:0.8rem">Not enough data</div>
+          </div>
+          <div class="card" style="min-width:0">
+            <div style="font-weight:600;font-size:0.82rem;color:#e8eeff;margin-bottom:0.875rem">Charges Impact</div>
+            <div id="charges-detail"></div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
   `;
 
@@ -222,11 +273,12 @@ export async function renderAnalytics(container) {
     const days = Math.ceil((new Date(t) - new Date(f)) / (1000 * 60 * 60 * 24)) + 1;
 
     try {
-      const [s, chart, sym, str] = await Promise.all([
+      const [s, chart, sym, str, deep] = await Promise.all([
         api.get(`/analytics/summary?from=${f}&to=${t}`),
         api.get(`/analytics/pnl-chart?days=${days}&from=${f}&to=${t}`),
         api.get('/analytics/by-symbol'),
         api.get('/analytics/by-strategy'),
+        api.get(`/analytics/deep?from=${f}&to=${t}`),
       ]);
       renderMetrics(grid, s);
       renderDailyChart(container, chart.chartData || []);
@@ -234,6 +286,7 @@ export async function renderAnalytics(container) {
       renderPieChart(container, s);
       renderSymbolBars(el('by-symbol'), sym.data);
       renderStrategyTable(el('by-strategy'), str.data);
+      renderDeep(container, deep);
     } catch (e) {
       console.error('Analytics error:', e);
     } finally {
@@ -442,4 +495,271 @@ function renderStrategyTable(el, data) {
         }).join('')}
       </tbody>
     </table>`;
+}
+
+// ── Deep analytics orchestrator ───────────────────────────────────────────────
+function renderDeep(container, d) {
+  const section = container.querySelector('#deep-section');
+  if (!section) return;
+  if (!d || d.empty) { section.style.display = 'none'; return; }
+  section.style.display = 'flex';
+
+  renderStreakCards(container.querySelector('#streak-cards'), d);
+  renderHoldChart(container, d.holdingTime || [], d.avgHold);
+  renderDowChart(container, d.dayOfWeek || []);
+  renderTodChart(container, d.timeOfDay || []);
+  renderChargesDetail(container.querySelector('#charges-detail'), d.chargesImpact);
+}
+
+// ── Streak cards ──────────────────────────────────────────────────────────────
+function renderStreakCards(el, d) {
+  if (!el) return;
+  const { streaks } = d;
+  const curColor = streaks.currentStreakType === 'win' ? '#22c55e' : '#ef4444';
+  const curIcon  = streaks.currentStreakType === 'win' ? '🔥' : '❄️';
+
+  const cards = [
+    {
+      icon: '🔥', label: 'Best Win Streak',
+      value: `${streaks.maxWinStreak} trades`,
+      sub: `${fmtINR(streaks.bestStreakPnl, true)} total`,
+      color: '#22c55e',
+    },
+    {
+      icon: '❄️', label: 'Worst Loss Streak',
+      value: `${streaks.maxLossStreak} trades`,
+      sub: `${fmtINR(streaks.worstStreakPnl, true)} total`,
+      color: '#ef4444',
+    },
+    {
+      icon: curIcon, label: 'Current Streak',
+      value: `${streaks.currentStreak} ${streaks.currentStreakType}${streaks.currentStreak !== 1 ? 's' : ''}`,
+      sub: streaks.currentStreakType === 'win' ? 'Keep going!' : 'Step back, review',
+      color: curColor,
+    },
+    {
+      icon: '⏱️', label: 'Avg Hold Time',
+      value: d.avgHold,
+      sub: `Min ${d.minHold} · Max ${d.maxHold}`,
+      color: '#60a5fa',
+    },
+  ];
+
+  el.innerHTML = cards.map(c => `
+    <div class="card" style="padding:0.875rem;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;right:0;width:36px;height:36px;border-radius:0 10px 0 36px;background:${c.color}18"></div>
+      <div style="font-size:1rem;margin-bottom:0.25rem">${c.icon}</div>
+      <div style="font-size:0.62rem;color:#3a4f6a;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:0.375rem">${c.label}</div>
+      <div style="font-size:1rem;font-weight:700;color:${c.color};font-family:'JetBrains Mono',monospace;margin-bottom:0.2rem">${c.value}</div>
+      <div style="font-size:0.62rem;color:#3a4f6a">${c.sub}</div>
+    </div>`).join('');
+}
+
+// ── Holding time bar chart ────────────────────────────────────────────────────
+function renderHoldChart(container, data, avgHold) {
+  const canvas = container.querySelector('#hold-chart');
+  const empty  = container.querySelector('#hold-empty');
+  const badge  = container.querySelector('#avg-hold-badge');
+  if (badge) badge.textContent = `avg ${avgHold}`;
+  if (!data?.length) { canvas.style.display='none'; empty.style.display='flex'; return; }
+  canvas.style.display=''; empty.style.display='none';
+  if (charts.hold) { charts.hold.destroy(); charts.hold=null; }
+
+  const labels   = data.map(d => d.label);
+  const avgPnls  = data.map(d => d.avgPnl);
+  const winRates = data.map(d => d.trades ? parseFloat(((d.wins/d.trades)*100).toFixed(1)) : 0);
+
+  charts.hold = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Avg P&L',
+          data: avgPnls,
+          backgroundColor: avgPnls.map(v => v >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)'),
+          borderRadius: 5, yAxisID: 'y',
+        },
+        {
+          label: 'Win Rate %',
+          data: winRates,
+          type: 'line',
+          borderColor: '#60a5fa', borderWidth: 2,
+          pointRadius: 4, pointBackgroundColor: '#60a5fa',
+          tension: 0.3, yAxisID: 'y1',
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color:'#7a90b0', font:{size:10}, boxWidth:10 } },
+        tooltip: { backgroundColor:'#0f1623', borderColor:'#1e2d45', borderWidth:1, titleColor:'#7a90b0', bodyColor:'#e8eeff',
+          callbacks: {
+            label: ctx => ctx.datasetIndex === 0
+              ? ` Avg P&L: ${fmtINR(ctx.parsed.y, true)}`
+              : ` Win Rate: ${ctx.parsed.y}%`,
+          },
+        },
+      },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:'#3a4f6a',font:{size:10}}, border:{display:false} },
+        y: { position:'left', grid:{color:'rgba(30,45,69,0.5)'}, ticks:{color:'#3a4f6a',font:{size:10},callback:v=>v>=1000||v<=-1000?`₹${(v/1000).toFixed(1)}k`:`₹${v}`}, border:{display:false} },
+        y1: { position:'right', min:0, max:100, grid:{display:false}, ticks:{color:'#3a4f6a',font:{size:10},callback:v=>`${v}%`}, border:{display:false} },
+      },
+    },
+  });
+}
+
+// ── Day of week bar chart ─────────────────────────────────────────────────────
+function renderDowChart(container, data) {
+  const canvas = container.querySelector('#dow-chart');
+  const empty  = container.querySelector('#dow-empty');
+  if (!data?.length) { canvas.style.display='none'; empty.style.display='flex'; return; }
+  canvas.style.display=''; empty.style.display='none';
+  if (charts.dow) { charts.dow.destroy(); charts.dow=null; }
+
+  const labels   = data.map(d => d.label);
+  const totals   = data.map(d => d.totalPnl);
+  const winRates = data.map(d => d.winRate);
+
+  charts.dow = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Total P&L',
+          data: totals,
+          backgroundColor: totals.map(v => v >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)'),
+          borderRadius: 5, yAxisID: 'y',
+        },
+        {
+          label: 'Win Rate %',
+          data: winRates,
+          type: 'line',
+          borderColor: '#a78bfa', borderWidth: 2,
+          pointRadius: 4, pointBackgroundColor: '#a78bfa',
+          tension: 0.3, yAxisID: 'y1',
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color:'#7a90b0', font:{size:10}, boxWidth:10 } },
+        tooltip: { backgroundColor:'#0f1623', borderColor:'#1e2d45', borderWidth:1, titleColor:'#7a90b0', bodyColor:'#e8eeff',
+          callbacks: {
+            label: ctx => ctx.datasetIndex === 0
+              ? ` Total P&L: ${fmtINR(ctx.parsed.y, true)} (${data[ctx.dataIndex].trades} trades)`
+              : ` Win Rate: ${ctx.parsed.y}%`,
+          },
+        },
+      },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:'#7a90b0',font:{size:11}}, border:{display:false} },
+        y: { position:'left', grid:{color:'rgba(30,45,69,0.5)'}, ticks:{color:'#3a4f6a',font:{size:10},callback:v=>v>=1000||v<=-1000?`₹${(v/1000).toFixed(1)}k`:`₹${v}`}, border:{display:false} },
+        y1: { position:'right', min:0, max:100, grid:{display:false}, ticks:{color:'#3a4f6a',font:{size:10},callback:v=>`${v}%`}, border:{display:false} },
+      },
+    },
+  });
+}
+
+// ── Time of day line chart ────────────────────────────────────────────────────
+function renderTodChart(container, data) {
+  const canvas = container.querySelector('#tod-chart');
+  const empty  = container.querySelector('#tod-empty');
+  if (!data?.length) { canvas.style.display='none'; empty.style.display='flex'; return; }
+  canvas.style.display=''; empty.style.display='none';
+  if (charts.tod) { charts.tod.destroy(); charts.tod=null; }
+
+  const labels  = data.map(d => d.label);
+  const avgPnls = data.map(d => d.avgPnl);
+  const counts  = data.map(d => d.trades);
+
+  charts.tod = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Avg P&L',
+          data: avgPnls,
+          borderColor: avgPnls[avgPnls.length-1] >= 0 ? '#22c55e' : '#ef4444',
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointBackgroundColor: avgPnls.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
+          tension: 0.3, fill: false, yAxisID: 'y',
+        },
+        {
+          label: 'Trades',
+          data: counts,
+          borderColor: 'rgba(96,165,250,0.5)', borderWidth: 1.5, borderDash: [4,4],
+          pointRadius: 2, tension: 0.3, fill: false, yAxisID: 'y1',
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color:'#7a90b0', font:{size:10}, boxWidth:10 } },
+        tooltip: { backgroundColor:'#0f1623', borderColor:'#1e2d45', borderWidth:1, titleColor:'#7a90b0', bodyColor:'#e8eeff',
+          callbacks: {
+            label: ctx => ctx.datasetIndex === 0
+              ? ` Avg P&L: ${fmtINR(ctx.parsed.y, true)}`
+              : ` Trades: ${ctx.parsed.y}`,
+          },
+        },
+      },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:'#3a4f6a',font:{size:10}}, border:{display:false} },
+        y: { position:'left', grid:{color:'rgba(30,45,69,0.5)'}, ticks:{color:'#3a4f6a',font:{size:10},callback:v=>v>=1000||v<=-1000?`₹${(v/1000).toFixed(1)}k`:`₹${v}`}, border:{display:false} },
+        y1: { position:'right', grid:{display:false}, ticks:{color:'#3a4f6a',font:{size:10}}, border:{display:false} },
+      },
+    },
+  });
+}
+
+// ── Charges impact detail ─────────────────────────────────────────────────────
+function renderChargesDetail(el, c) {
+  if (!el || !c) return;
+  const chargeColor = c.chargesPct > 20 ? '#ef4444' : c.chargesPct > 10 ? '#eab308' : '#22c55e';
+  const grossColor  = (c.grossPnl  || 0) >= 0 ? '#22c55e' : '#ef4444';
+  const netColor    = (c.netPnl    || 0) >= 0 ? '#22c55e' : '#ef4444';
+
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:0.5rem">
+
+      <!-- Gross → Charges → Net flow -->
+      <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:0.25rem;text-align:center;padding:0.75rem;background:#060a12;border-radius:8px;border:1px solid #1e2d45">
+        <div>
+          <div style="font-size:0.6rem;color:#3a4f6a;margin-bottom:3px">GROSS P&L</div>
+          <div style="font-size:0.95rem;font-weight:700;color:${grossColor};font-family:'JetBrains Mono',monospace">${fmtINR(c.grossPnl, true)}</div>
+        </div>
+        <div style="color:#3a4f6a;font-size:0.9rem">−</div>
+        <div>
+          <div style="font-size:0.6rem;color:#3a4f6a;margin-bottom:3px">CHARGES</div>
+          <div style="font-size:0.95rem;font-weight:700;color:${chargeColor};font-family:'JetBrains Mono',monospace">${fmtINR(c.totalCharges)}</div>
+        </div>
+        <div style="color:#3a4f6a;font-size:0.9rem">=</div>
+        <div>
+          <div style="font-size:0.6rem;color:#3a4f6a;margin-bottom:3px">NET P&L</div>
+          <div style="font-size:0.95rem;font-weight:700;color:${netColor};font-family:'JetBrains Mono',monospace">${fmtINR(c.netPnl, true)}</div>
+        </div>
+      </div>
+
+      <!-- Stats rows -->
+      ${[
+        ['Charges / Gross P&L', `${c.chargesPct}%`, chargeColor, c.chargesPct > 15 ? '⚠️ High — consider lower-charge broker' : c.chargesPct > 8 ? '📊 Moderate' : '✓ Well controlled'],
+        ['Avg charges per trade', fmtINR(c.avgCharges), '#94a3b8', 'Brokerage + STT + GST'],
+        ['Trades eaten by charges', `${c.chargesAteIt}`, c.chargesAteIt > 0 ? '#f97316' : '#22c55e', c.chargesAteIt > 0 ? `${c.chargesAteIt} trade${c.chargesAteIt>1?'s':''} where charges > P&L` : 'No trades eaten by charges'],
+      ].map(([label, val, color, note]) => `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:0.5rem 0;border-bottom:1px solid #0d1524">
+          <div>
+            <div style="font-size:0.75rem;color:#c0cce0;font-weight:500">${label}</div>
+            <div style="font-size:0.65rem;color:#3a4f6a;margin-top:2px">${note}</div>
+          </div>
+          <div style="font-size:0.9rem;font-weight:700;color:${color};font-family:'JetBrains Mono',monospace;flex-shrink:0;margin-left:0.75rem">${val}</div>
+        </div>`).join('')}
+    </div>`;
 }
