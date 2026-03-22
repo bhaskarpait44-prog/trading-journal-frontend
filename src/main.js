@@ -10,6 +10,7 @@ import { renderTrades }     from './pages/trades.js';
 import { renderAnalytics }  from './pages/analytics.js';
 import { renderPsychology } from './pages/psychology.js';
 import { renderCalendar }   from './pages/calendar.js';
+import { renderExport }    from './pages/export.js';
 import { renderProfile }    from './pages/profile.js';
 import { renderRisk }       from './pages/risk.js';
 import { renderPricing }    from './pages/pricing.js';
@@ -153,6 +154,7 @@ register('#add-trade',  c => renderAddTrade(c));
 register('#analytics',  c => renderAnalytics(c));
 register('#psychology', c => renderPsychology(c));
 register('#calendar',   c => renderCalendar(c));
+register('#export',     c => renderExport(c));
 register('#profile',    c => renderProfile(c));
 register('#risk',       c => renderRisk(c));
 
