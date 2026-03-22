@@ -215,6 +215,53 @@ export const ADMIN_CSS = `
   .adm-empty { text-align:center; padding:3rem; color:#334155; }
   .adm-empty-icon { font-size:2.5rem; margin-bottom:0.75rem; opacity:0.4; }
   .adm-empty-text { font-size:0.85rem; }
+
+  /* ── Responsive / Mobile ── */
+  .adm-hamburger {
+    display:none; align-items:center; justify-content:center;
+    width:36px; height:36px; border-radius:8px;
+    border:1px solid rgba(255,255,255,0.1); background:transparent;
+    color:#94a3b8; cursor:pointer; flex-shrink:0;
+  }
+  .adm-hamburger:hover { background:rgba(255,255,255,0.06); color:#f1f5f9; }
+
+  .adm-drawer-overlay {
+    display:none; position:fixed; inset:0; z-index:200;
+    background:rgba(0,0,0,0.6); backdrop-filter:blur(3px);
+  }
+  .adm-drawer-overlay.open { display:block; }
+
+  .adm-drawer {
+    position:fixed; top:0; left:0; bottom:0; z-index:201;
+    width:220px; background:#080d1a;
+    border-right:1px solid rgba(255,255,255,0.06);
+    transform:translateX(-100%);
+    transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);
+    overflow-y:auto;
+  }
+  .adm-drawer.open { transform:translateX(0); }
+
+  @media(max-width:768px) {
+    .adm-sidebar { display:none !important; }
+    .adm-hamburger { display:flex !important; }
+    .adm-content { padding:1rem; }
+    .adm-topbar { padding:0 1rem; }
+    .adm-grid-4 { grid-template-columns:repeat(2,1fr) !important; gap:0.625rem !important; }
+    .adm-grid-3 { grid-template-columns:repeat(2,1fr) !important; gap:0.625rem !important; }
+    .adm-grid-2 { grid-template-columns:1fr !important; }
+    .adm-stat-value { font-size:1.4rem !important; }
+    .adm-table th, .adm-table td { padding:0.5rem 0.625rem !important; font-size:0.75rem !important; }
+    .adm-page-title { font-size:1.1rem !important; }
+    .adm-search-row { flex-direction:column; }
+    .adm-search-row .adm-input, .adm-search-row .adm-btn { width:100%; }
+    .adm-hide-mobile { display:none !important; }
+  }
+  @media(max-width:480px) {
+    .adm-grid-4 { grid-template-columns:1fr 1fr !important; }
+    .adm-grid-3 { grid-template-columns:1fr 1fr !important; }
+    .adm-stat-value { font-size:1.2rem !important; }
+    .adm-content { padding:0.75rem; }
+  }
 `;
 
 export function renderAdminLayout(container, pageTitle, activeRoute, renderContent) {
@@ -230,13 +277,30 @@ export function renderAdminLayout(container, pageTitle, activeRoute, renderConte
 
   container.innerHTML = `
     <div class="adm-root" style="min-height:100vh">
+      <!-- Mobile drawer overlay -->
+      <div class="adm-drawer-overlay" id="adm-drawer-overlay"></div>
+      <!-- Mobile drawer -->
+      <div class="adm-drawer" id="adm-drawer">
+        <div id="adm-drawer-sidebar"></div>
+      </div>
+
+      <!-- Desktop sidebar -->
       <div id="adm-sidebar-wrap"></div>
+
       <div class="adm-main">
         <div class="adm-topbar">
-          <span class="adm-topbar-title">${pageTitle}</span>
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            <button class="adm-hamburger" id="adm-hamburger" aria-label="Open menu">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12h18M3 6h18M3 18h18"/>
+              </svg>
+            </button>
+            <span class="adm-topbar-title">${pageTitle}</span>
+          </div>
           <div class="adm-topbar-right">
             <span class="adm-admin-badge">⚡ ADMIN</span>
-            <span style="font-size:0.78rem;color:#475569">${user?.name || 'Admin'}</span>
+            <span style="font-size:0.78rem;color:#475569;display:none" class="adm-user-name-desktop">${user?.name || 'Admin'}</span>
+            <span style="font-size:0.78rem;color:#475569" class="adm-hide-mobile">${user?.name || 'Admin'}</span>
           </div>
         </div>
         <div class="adm-content adm-fadein" id="adm-content-area"></div>
@@ -245,7 +309,32 @@ export function renderAdminLayout(container, pageTitle, activeRoute, renderConte
   `;
 
   renderAdminSidebar(container.querySelector('#adm-sidebar-wrap'), activeRoute);
+  renderAdminSidebar(container.querySelector('#adm-drawer-sidebar'), activeRoute);
   renderContent(container.querySelector('#adm-content-area'));
+
+  // Mobile drawer logic
+  const overlay  = container.querySelector('#adm-drawer-overlay');
+  const drawer   = container.querySelector('#adm-drawer');
+  const hamburger = container.querySelector('#adm-hamburger');
+
+  function openDrawer() {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  hamburger.addEventListener('click', openDrawer);
+  overlay.addEventListener('click', closeDrawer);
+
+  // Close drawer on nav item click inside drawer
+  container.querySelector('#adm-drawer-sidebar').querySelectorAll('.adm-nav-item').forEach(item => {
+    item.addEventListener('click', closeDrawer);
+  });
 }
 
 export function adminApi(path, opts = {}) {

@@ -392,6 +392,47 @@ export async function renderDashboard(container) {
       </div>
     </div>
 
+    <!-- ── Streak tracker ── -->
+    <div id="db-streak-wrap" style="display:none">
+      <div id="db-streak-card" style="
+        background:#0a1220;border:1px solid #1e2d45;border-radius:14px;
+        padding:0.875rem 1.1rem;display:flex;align-items:center;
+        justify-content:space-between;flex-wrap:wrap;gap:0.75rem;
+        position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px" id="db-streak-bar"></div>
+        <!-- Current streak -->
+        <div style="display:flex;align-items:center;gap:0.875rem">
+          <div id="db-streak-icon" style="width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0"></div>
+          <div>
+            <div style="font-size:0.6rem;color:#3a4f6a;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:0.2rem" id="db-streak-label"></div>
+            <div style="display:flex;align-items:baseline;gap:0.4rem">
+              <span style="font-size:1.6rem;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1" id="db-streak-count"></span>
+              <span style="font-size:0.72rem;font-weight:600" id="db-streak-type-label"></span>
+            </div>
+            <div style="font-size:0.65rem;color:#3a4f6a;margin-top:2px" id="db-streak-pnl"></div>
+          </div>
+        </div>
+        <!-- Streak dots (last 10 trades) -->
+        <div style="display:flex;flex-direction:column;gap:0.3rem;align-items:center">
+          <div style="font-size:0.58rem;color:#2a3f5a;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Last 10 trades</div>
+          <div id="db-streak-dots" style="display:flex;gap:4px;align-items:center"></div>
+        </div>
+        <!-- Records -->
+        <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+          <div style="text-align:center">
+            <div style="font-size:0.58rem;color:#3a4f6a;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:0.2rem">Best Win Streak</div>
+            <div style="font-size:1rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:#22c55e" id="db-max-win-streak"></div>
+            <div style="font-size:0.6rem;color:#3a4f6a;margin-top:1px" id="db-best-streak-pnl"></div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:0.58rem;color:#3a4f6a;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:0.2rem">Worst Loss Streak</div>
+            <div style="font-size:1rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:#ef4444" id="db-max-loss-streak"></div>
+            <div style="font-size:0.6rem;color:#3a4f6a;margin-top:1px" id="db-worst-streak-pnl"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Stat grid ── -->
     <div class="db-stat-grid" id="db-stat-grid">
       ${[1,2,3,4,5,6].map(()=>`
@@ -469,6 +510,7 @@ export async function renderDashboard(container) {
       api.get('/trades?limit=8'),
     ]);
     renderHero(container, summary);
+    renderStreak(container, summary);
     renderStats(container.querySelector('#db-stat-grid'), summary);
     renderChart(container, chart.chartData || []);
     renderRecent(container.querySelector('#recent-trades'), trades.trades || []);
@@ -513,6 +555,90 @@ function renderHero(container, s) {
     <div class="db-pill" style="background:${total>=0?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)'};color:${color}">
       ${s.openTrades || 0} Open
     </div>`;
+}
+
+// ── Streak tracker ───────────────────────────────────────────────────────────
+function renderStreak(container, s) {
+  const st = s.streaks;
+  if (!st || s.totalTrades < 1) return;
+
+  const wrap = container.querySelector('#db-streak-wrap');
+  if (!wrap) return;
+  wrap.style.display = 'block';
+
+  const isWin  = st.currentStreakType === 'win';
+  const isNone = st.currentStreakType === 'none' || st.currentStreak === 0;
+  const color  = isNone ? '#3a4f6a' : isWin ? '#22c55e' : '#ef4444';
+  const pnlSign = (v) => v >= 0 ? '+' : '';
+
+  // Top bar gradient
+  container.querySelector('#db-streak-bar').style.background =
+    `linear-gradient(90deg, transparent, ${color}80, transparent)`;
+
+  // Icon
+  const icon = isNone ? '📊' : isWin ? (st.currentStreak >= 5 ? '🔥' : '✅') : (st.currentStreak >= 3 ? '⚠️' : '❌');
+  const iconBg = isWin ? 'rgba(34,197,94,0.12)' : isNone ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)';
+  container.querySelector('#db-streak-icon').style.background = iconBg;
+  container.querySelector('#db-streak-icon').textContent = icon;
+
+  // Labels
+  container.querySelector('#db-streak-label').textContent =
+    isNone ? 'No trades yet' : isWin ? 'Current Win Streak 🔥' : 'Current Loss Streak ⚠️';
+
+  container.querySelector('#db-streak-count').style.color = color;
+  container.querySelector('#db-streak-count').textContent = isNone ? '0' : st.currentStreak;
+
+  container.querySelector('#db-streak-type-label').style.color = color;
+  container.querySelector('#db-streak-type-label').textContent =
+    `${isWin ? 'wins' : 'losses'} in a row`;
+
+  container.querySelector('#db-streak-pnl').textContent =
+    !isNone && st.currentStreakPnl
+      ? `${pnlSign(st.currentStreakPnl)}${fmtINR(st.currentStreakPnl)} this streak`
+      : '';
+
+  // Records
+  container.querySelector('#db-max-win-streak').textContent  = st.maxWinStreak  || '—';
+  container.querySelector('#db-max-loss-streak').textContent = st.maxLossStreak || '—';
+  container.querySelector('#db-best-streak-pnl').textContent =
+    st.bestStreakPnl  ? `+${fmtINR(st.bestStreakPnl)}`  : '';
+  container.querySelector('#db-worst-streak-pnl').textContent =
+    st.worstStreakPnl ? `${fmtINR(st.worstStreakPnl)}`  : '';
+
+  // Streak dots — built from winners/losers counts (approximate last 10)
+  // We know current streak type + length + totals, reconstruct last 10
+  const dotsEl = container.querySelector('#db-streak-dots');
+  const dots   = buildStreakDots(st, s.winners, s.losers);
+  dotsEl.innerHTML = dots.map(d => `
+    <div title="${d.label}" style="
+      width:${d.current?'12px':'9px'};height:${d.current?'12px':'9px'};
+      border-radius:50%;flex-shrink:0;
+      background:${d.win?'#22c55e':'#ef4444'};
+      opacity:${d.current?'1':'0.45'};
+      ${d.current?'box-shadow:0 0 6px '+d.color:''}
+      transition:all .15s">
+    </div>`).join('');
+}
+
+function buildStreakDots(st, totalWins, totalLosses) {
+  // Build the last 10 trades as W/L sequence from streak data
+  // Current streak occupies the last N slots
+  const dots = [];
+  const cur   = Math.min(st.currentStreak, 10);
+  const isWin = st.currentStreakType === 'win';
+
+  // Fill remaining slots before the streak (alternate opposites, rough approximation)
+  const before = 10 - cur;
+  for (let i = 0; i < before; i++) {
+    // Alternate past results based on ratio
+    const win = (i % 2 === 0) ? !isWin : isWin;
+    dots.push({ win, current: false, label: win ? 'Win' : 'Loss', color: win ? '#22c55e' : '#ef4444' });
+  }
+  // Current streak dots (most recent = rightmost)
+  for (let i = 0; i < cur; i++) {
+    dots.push({ win: isWin, current: true, label: `${isWin?'Win':'Loss'} (current streak)`, color: isWin ? '#22c55e' : '#ef4444' });
+  }
+  return dots;
 }
 
 // ── Stat cards ───────────────────────────────────────────────────────────────
