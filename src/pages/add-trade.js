@@ -2419,49 +2419,28 @@ function renderFyers(container) {
 
       connectBtn.innerHTML = `<span class="fy-pulsing">⏳ Waiting for Fyers login…</span>`;
 
-      // 3. Listen for postMessage from popup
-      const onMessage = (event) => {
-        if (event.data?.type === 'FYERS_AUTH_SUCCESS') {
-          window.removeEventListener('message', onMessage);
-          clearInterval(pollInterval);
-          setConnected(event.data.accessToken, event.data.appId || appId);
-          toast('Connected to Fyers! 🎉', 'success');
-        } else if (event.data?.type === 'FYERS_AUTH_ERROR') {
-          window.removeEventListener('message', onMessage);
-          clearInterval(pollInterval);
-          toast('Fyers auth failed: ' + event.data.error, 'error');
-          connectBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg> Connect with Fyers`;
-          connectBtn.disabled = false;
-        }
-      };
-      window.addEventListener('message', onMessage);
-
-      // 4. Also poll backend in case postMessage fails (cross-origin popup)
+      // Poll backend every 2 seconds — popup closes itself after auth
       pollInterval = setInterval(async () => {
         try {
           const poll = await api.get(`/fyers/poll-token?sessionId=${sessionId}`);
           if (poll.status === 'success' && poll.accessToken) {
             clearInterval(pollInterval);
-            window.removeEventListener('message', onMessage);
             if (!popup.closed) popup.close();
             setConnected(poll.accessToken, poll.appId || appId);
             toast('Connected to Fyers! 🎉', 'success');
           } else if (poll.status === 'error') {
             clearInterval(pollInterval);
-            window.removeEventListener('message', onMessage);
+            if (!popup.closed) popup.close();
             toast('Fyers auth failed: ' + poll.error, 'error');
             connectBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg> Connect with Fyers`;
             connectBtn.disabled = false;
           }
-          // If popup closed without message, stop polling after 3 min
-          if (popup.closed) clearInterval(pollInterval);
-        } catch { /* poll errors are silent */ }
+        } catch { /* silent */ }
       }, 2000);
 
-      // 5. Timeout after 5 minutes
+      // Timeout after 5 minutes
       setTimeout(() => {
         clearInterval(pollInterval);
-        window.removeEventListener('message', onMessage);
         if (!popup.closed) popup.close();
         if (!fyersToken) {
           connectBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg> Connect with Fyers`;
