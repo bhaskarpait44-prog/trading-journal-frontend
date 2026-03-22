@@ -2499,25 +2499,65 @@ function renderFyers(container) {
 function renderBroker(container) {
   container.innerHTML = `
     <div style="max-width:780px">
+
       <!-- Broker selector -->
-      <div style="display:flex;gap:0.625rem;margin-bottom:1.25rem">
-        <button class="broker-pick active" data-broker="dhan"
-          style="flex:1;padding:0.75rem;border-radius:10px;border:1px solid rgba(59,130,246,0.4);
-                 background:rgba(59,130,246,0.1);color:#60a5fa;font-size:0.85rem;font-weight:700;
-                 cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:0.5rem;transition:all .15s">
-          <span style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#3b82f6,#6366f1);
-                       display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:#fff">D</span>
-          Dhan
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.5rem">
+
+        <!-- Dhan -->
+        <button class="broker-pick active" data-broker="dhan" style="
+          padding:1rem 1.25rem; border-radius:12px; cursor:pointer; font-family:inherit;
+          border:2px solid rgba(59,130,246,0.5); background:rgba(59,130,246,0.08);
+          display:flex; align-items:center; gap:0.875rem; transition:all .18s; text-align:left">
+          <!-- Dhan logo SVG -->
+          <div style="width:40px;height:40px;border-radius:10px;overflow:hidden;flex-shrink:0;
+                      background:#fff;display:flex;align-items:center;justify-content:center;
+                      box-shadow:0 2px 8px rgba(0,0,0,0.3)">
+            <svg viewBox="0 0 100 100" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+              <rect width="100" height="100" fill="#fff"/>
+              <text x="50" y="68" font-family="Arial Black,Arial" font-weight="900"
+                font-size="52" fill="#1a56db" text-anchor="middle">D</text>
+            </svg>
+          </div>
+          <div>
+            <div style="font-weight:800;font-size:0.95rem;color:#e8eeff">Dhan</div>
+            <div style="font-size:0.65rem;color:#60a5fa;margin-top:1px">API Sync · Auto token</div>
+          </div>
+          <div style="margin-left:auto;width:18px;height:18px;border-radius:50%;
+                      background:rgba(59,130,246,0.2);border:2px solid #3b82f6;
+                      display:flex;align-items:center;justify-content:center" id="dhan-check">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
         </button>
-        <button class="broker-pick" data-broker="fyers"
-          style="flex:1;padding:0.75rem;border-radius:10px;border:1px solid #1e2d45;
-                 background:transparent;color:#7a90b0;font-size:0.85rem;font-weight:700;
-                 cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:0.5rem;transition:all .15s">
-          <span style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#ef4444,#dc2626);
-                       display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;color:#fff">F</span>
-          Fyers
+
+        <!-- Fyers -->
+        <button class="broker-pick" data-broker="fyers" style="
+          padding:1rem 1.25rem; border-radius:12px; cursor:pointer; font-family:inherit;
+          border:2px solid #1e2d45; background:transparent;
+          display:flex; align-items:center; gap:0.875rem; transition:all .18s; text-align:left">
+          <!-- Fyers logo -->
+          <div style="width:40px;height:40px;border-radius:10px;overflow:hidden;flex-shrink:0;
+                      background:#fff;display:flex;align-items:center;justify-content:center;
+                      box-shadow:0 2px 8px rgba(0,0,0,0.3)">
+            <svg viewBox="0 0 100 100" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+              <rect width="100" height="100" fill="#fff"/>
+              <!-- Fyers F logo in red -->
+              <rect x="22" y="18" width="14" height="64" rx="3" fill="#e53935"/>
+              <rect x="22" y="18" width="54" height="14" rx="3" fill="#e53935"/>
+              <rect x="22" y="45" width="42" height="13" rx="3" fill="#e53935"/>
+            </svg>
+          </div>
+          <div>
+            <div style="font-weight:800;font-size:0.95rem;color:#7a90b0" id="fyers-btn-title">Fyers</div>
+            <div style="font-size:0.65rem;color:#3a4f6a;margin-top:1px" id="fyers-btn-sub">API Sync · OAuth login</div>
+          </div>
+          <div style="margin-left:auto;width:18px;height:18px;border-radius:50%;
+                      background:#1e2d45;border:2px solid #2a3f5a;
+                      display:flex;align-items:center;justify-content:center;opacity:0" id="fyers-check">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
         </button>
       </div>
+
       <div id="broker-panel"></div>
     </div>
   `;
@@ -2528,19 +2568,27 @@ function renderBroker(container) {
   function selectBroker(broker) {
     picks.forEach(p => {
       const active = p.dataset.broker === broker;
+      const isDhan = p.dataset.broker === 'dhan';
       p.style.borderColor = active
-        ? (broker === 'dhan' ? 'rgba(59,130,246,0.4)' : 'rgba(239,68,68,0.4)')
+        ? (isDhan ? 'rgba(59,130,246,0.5)' : 'rgba(239,68,68,0.5)')
         : '#1e2d45';
-      p.style.background  = active
-        ? (broker === 'dhan' ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)')
+      p.style.background = active
+        ? (isDhan ? 'rgba(59,130,246,0.08)' : 'rgba(239,68,68,0.08)')
         : 'transparent';
-      p.style.color = active
-        ? (broker === 'dhan' ? '#60a5fa' : '#f87171')
-        : '#7a90b0';
+      // Title color
+      const title = p.querySelector('[id$="-btn-title"]') || p.querySelector('div > div:first-child');
+      if (title) title.style.color = active ? '#e8eeff' : '#7a90b0';
+      // Check circle
+      const check = p.querySelector('[id$="-check"]');
+      if (check) {
+        check.style.opacity        = active ? '1' : '0';
+        check.style.background     = active ? (isDhan ? 'rgba(59,130,246,0.2)' : 'rgba(239,68,68,0.2)') : '#1e2d45';
+        check.style.borderColor    = active ? (isDhan ? '#3b82f6' : '#ef4444') : '#2a3f5a';
+      }
     });
     panel.innerHTML = '';
-    if (broker === 'dhan')  renderDhan(panel);
-    else                    renderFyers(panel);
+    if (broker === 'dhan') renderDhan(panel);
+    else                   renderFyers(panel);
   }
 
   picks.forEach(p => p.addEventListener('click', () => selectBroker(p.dataset.broker)));
