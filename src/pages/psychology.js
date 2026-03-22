@@ -70,6 +70,76 @@ export async function renderPsychology(container) {
           <div style="font-weight:600;font-size:0.82rem;color:#c084fc;margin-bottom:0.875rem">💡 Behavioural Insights</div>
           <div id="insights-list" style="display:flex;flex-direction:column;gap:0.5rem"></div>
         </div>
+
+        <!-- ── Psychology Trends ── -->
+        <div class="card" style="border-color:rgba(168,85,247,0.2)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1.25rem">
+            <div>
+              <div style="font-weight:700;font-size:0.88rem;color:#e8eeff;display:flex;align-items:center;gap:0.5rem">
+                📈 Psychology Trends Over Time
+              </div>
+              <div style="font-size:0.7rem;color:#3a4f6a;margin-top:2px">Discipline · Emotions · Mistakes tracked period by period</div>
+            </div>
+            <div style="display:flex;gap:0.4rem">
+              <button id="trend-week" onclick="window.__trendPeriod('week')"
+                style="padding:0.3rem 0.875rem;border-radius:6px;border:1px solid #3b82f6;background:rgba(59,130,246,0.15);
+                       color:#60a5fa;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit">Weekly</button>
+              <button id="trend-month" onclick="window.__trendPeriod('month')"
+                style="padding:0.3rem 0.875rem;border-radius:6px;border:1px solid #1e2d45;background:transparent;
+                       color:#3a4f6a;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit">Monthly</button>
+            </div>
+          </div>
+
+          <div id="trends-loading" style="text-align:center;padding:2rem;color:#3a4f6a;font-size:0.8rem">Loading trends…</div>
+          <div id="trends-content" style="display:none;flex-direction:column;gap:1.5rem">
+
+            <!-- Discipline score time-series -->
+            <div>
+              <div style="font-size:0.75rem;font-weight:600;color:#a855f7;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem">
+                🎯 Discipline Score
+                <span style="font-size:0.65rem;color:#3a4f6a;font-weight:400">avg per period (1–10 scale)</span>
+              </div>
+              <div style="position:relative;height:160px">
+                <canvas id="trend-discipline" style="position:absolute;inset:0;width:100%!important;height:100%!important"></canvas>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid #1e2d45"></div>
+
+            <!-- Emotion distribution stacked bar -->
+            <div>
+              <div style="font-size:0.75rem;font-weight:600;color:#3b82f6;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem">
+                😌 Emotion Distribution
+                <span style="font-size:0.65rem;color:#3a4f6a;font-weight:400">count of trades per emotion per period</span>
+              </div>
+              <div style="position:relative;height:180px">
+                <canvas id="trend-emotions" style="position:absolute;inset:0;width:100%!important;height:100%!important"></canvas>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid #1e2d45"></div>
+
+            <!-- FOMO + Revenge + Overtrading trend -->
+            <div>
+              <div style="font-size:0.75rem;font-weight:600;color:#ef4444;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem">
+                ⚠️ Mistake Trends
+                <span style="font-size:0.65rem;color:#3a4f6a;font-weight:400">FOMO · Revenge · Overtrading · No Stoploss per period</span>
+              </div>
+              <div style="position:relative;height:160px">
+                <canvas id="trend-mistakes" style="position:absolute;inset:0;width:100%!important;height:100%!important"></canvas>
+              </div>
+            </div>
+
+            <!-- Period summary table -->
+            <div style="border-top:1px solid #1e2d45;padding-top:1rem">
+              <div style="font-size:0.72rem;font-weight:600;color:#7a90b0;margin-bottom:0.6rem">Period Summary</div>
+              <div id="trends-table" style="overflow-x:auto"></div>
+            </div>
+          </div>
+          <div id="trends-empty" style="display:none;text-align:center;padding:2rem;color:#3a4f6a;font-size:0.8rem">
+            Not enough data to show trends yet. Keep logging psychology on your trades.
+          </div>
+        </div>
       </div>
 
       <div id="psych-empty" style="display:none">
@@ -108,6 +178,7 @@ export async function renderPsychology(container) {
     renderEmotionTable(container.querySelector('#emotion-table'), data.emotionWinRate || []);
     if (riskData?.totalCapital > 0) renderRiskVsActual(container.querySelector('#risk-vs-actual'), riskData, data);
     renderInsights(container.querySelector('#insights-list'), data, riskData);
+    await loadTrends(container, 'week');
   } catch (e) {
     console.error('Psychology error:', e);
     container.querySelector('#psych-loading').textContent = 'Failed to load data.';
@@ -338,4 +409,262 @@ function renderInsights(el, d, rm) {
       <span style="font-size:1.1rem;flex-shrink:0;margin-top:1px">${i.icon}</span>
       <div style="font-size:0.78rem;color:#c0cce0;line-height:1.6">${i.text}</div>
     </div>`).join('');
+}
+// ── TRENDS SECTION (appended at bottom, injected into page) ──────────────────
+export async function renderPsychTrends(container) {
+  // This function is called from renderPsychology after main content loads
+}
+
+// ── Psychology Trend charts ────────────────────────────────────────────────────
+const TREND_CHARTS = {};
+let _trendContainer = null;
+
+async function loadTrends(container, period) {
+  _trendContainer = container;
+  window.__trendPeriod = async (p) => {
+    // Toggle button styles
+    const wBtn = container.querySelector('#trend-week');
+    const mBtn = container.querySelector('#trend-month');
+    if (wBtn) { wBtn.style.borderColor = p==='week'?'#3b82f6':'#1e2d45'; wBtn.style.background = p==='week'?'rgba(59,130,246,0.15)':'transparent'; wBtn.style.color = p==='week'?'#60a5fa':'#3a4f6a'; }
+    if (mBtn) { mBtn.style.borderColor = p==='month'?'#3b82f6':'#1e2d45'; mBtn.style.background = p==='month'?'rgba(59,130,246,0.15)':'transparent'; mBtn.style.color = p==='month'?'#60a5fa':'#3a4f6a'; }
+    await loadTrends(_trendContainer, p);
+  };
+
+  container.querySelector('#trends-loading').style.display = 'block';
+  container.querySelector('#trends-content').style.display = 'none';
+  container.querySelector('#trends-empty').style.display   = 'none';
+
+  try {
+    const data = await api.get(`/analytics/psychology-trends?period=${period}`);
+    container.querySelector('#trends-loading').style.display = 'none';
+
+    if (!data.periods?.length || data.periods.length < 2) {
+      container.querySelector('#trends-empty').style.display = 'block'; return;
+    }
+
+    container.querySelector('#trends-content').style.display = 'flex';
+    renderDisciplineChart(container, data);
+    renderEmotionStackChart(container, data);
+    renderMistakeTrendChart(container, data);
+    renderTrendsTable(container, data);
+  } catch (e) {
+    container.querySelector('#trends-loading').textContent = 'Failed to load trends.';
+  }
+}
+
+function renderDisciplineChart(container, data) {
+  const canvas = container.querySelector('#trend-discipline');
+  if (!canvas) return;
+  if (TREND_CHARTS.discipline) { TREND_CHARTS.discipline.destroy(); delete TREND_CHARTS.discipline; }
+
+  const hasDisc = data.discipline.some(v => v !== null);
+  if (!hasDisc) { canvas.parentElement.innerHTML = '<div style="height:160px;display:flex;align-items:center;justify-content:center;color:#3a4f6a;font-size:0.78rem">No discipline ratings logged yet</div>'; return; }
+
+  // Threshold zones for background plugin
+  TREND_CHARTS.discipline = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: data.periods,
+      datasets: [
+        {
+          label: 'Discipline Score',
+          data: data.discipline,
+          borderColor: '#a855f7',
+          backgroundColor: 'rgba(168,85,247,0.1)',
+          borderWidth: 2.5,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: data.discipline.map(v => v === null ? 'transparent' : v >= 7 ? '#22c55e' : v >= 4 ? '#eab308' : '#ef4444'),
+          pointBorderColor: 'transparent',
+          spanGaps: true,
+        },
+        {
+          label: 'Win Rate %',
+          data: data.winRate,
+          borderColor: '#3b82f6',
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+          tension: 0.4,
+          fill: false,
+          pointRadius: 2,
+          pointBackgroundColor: '#3b82f6',
+          yAxisID: 'y1',
+          spanGaps: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#7a90b0', font: { size: 10 }, boxWidth: 10, usePointStyle: true } },
+        tooltip: {
+          backgroundColor: '#0f1623', borderColor: '#1e2d45', borderWidth: 1,
+          titleColor: '#7a90b0', bodyColor: '#e8eeff', padding: 8,
+          callbacks: {
+            label: ctx => ctx.datasetIndex === 0
+              ? ` Discipline: ${ctx.parsed.y !== null ? ctx.parsed.y + '/10' : '—'}`
+              : ` Win Rate: ${ctx.parsed.y !== null ? ctx.parsed.y + '%' : '—'}`,
+          },
+        },
+        annotation: {
+          annotations: {
+            good:  { type: 'line', yMin: 7, yMax: 7, borderColor: 'rgba(34,197,94,0.3)',  borderWidth: 1, borderDash: [4,3], label: { display: false } },
+            poor:  { type: 'line', yMin: 4, yMax: 4, borderColor: 'rgba(239,68,68,0.3)',   borderWidth: 1, borderDash: [4,3], label: { display: false } },
+          },
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#3a4f6a', font: { size: 9 }, maxTicksLimit: 10 }, border: { display: false } },
+        y: { min: 0, max: 10, grid: { color: 'rgba(30,45,69,0.5)' }, ticks: { color: '#3a4f6a', font: { size: 9 }, stepSize: 2, callback: v => `${v}` }, border: { display: false } },
+        y1: { position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { color: '#3a4f6a', font: { size: 9 }, callback: v => `${v}%` }, border: { display: false } },
+      },
+    },
+  });
+}
+
+function renderEmotionStackChart(container, data) {
+  const canvas = container.querySelector('#trend-emotions');
+  if (!canvas) return;
+  if (TREND_CHARTS.emotions) { TREND_CHARTS.emotions.destroy(); delete TREND_CHARTS.emotions; }
+
+  const EC = {
+    calm:          { color: '#22c55e', label: '😌 Calm' },
+    confident:     { color: '#3b82f6', label: '💪 Confident' },
+    overconfident: { color: '#f97316', label: '🤩 Overconfident' },
+    fearful:       { color: '#eab308', label: '😨 Fearful' },
+    frustrated:    { color: '#ef4444', label: '😤 Frustrated' },
+    revenge:       { color: '#dc2626', label: '😡 Revenge' },
+  };
+
+  const activeEmotions = Object.keys(EC).filter(e => (data.emotions[e] || []).some(v => v > 0));
+
+  TREND_CHARTS.emotions = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: data.periods,
+      datasets: activeEmotions.map(e => ({
+        label: EC[e].label,
+        data: data.emotions[e] || [],
+        backgroundColor: EC[e].color + 'bb',
+        borderColor: EC[e].color,
+        borderWidth: 0,
+        borderRadius: 2,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#7a90b0', font: { size: 10 }, boxWidth: 10 } },
+        tooltip: { backgroundColor: '#0f1623', borderColor: '#1e2d45', borderWidth: 1, titleColor: '#7a90b0', bodyColor: '#e8eeff' },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: '#3a4f6a', font: { size: 9 }, maxTicksLimit: 10 }, border: { display: false } },
+        y: { stacked: true, grid: { color: 'rgba(30,45,69,0.5)' }, ticks: { color: '#3a4f6a', font: { size: 9 }, stepSize: 1 }, border: { display: false } },
+      },
+    },
+  });
+}
+
+function renderMistakeTrendChart(container, data) {
+  const canvas = container.querySelector('#trend-mistakes');
+  if (!canvas) return;
+  if (TREND_CHARTS.mistakes) { TREND_CHARTS.mistakes.destroy(); delete TREND_CHARTS.mistakes; }
+
+  const MC = {
+    fomo_entry:          { color: '#f97316', label: '🚀 FOMO' },
+    revenge_trade:       { color: '#ef4444', label: '😡 Revenge' },
+    overtrading:         { color: '#a855f7', label: '🔁 Overtrading' },
+    no_stoploss:         { color: '#dc2626', label: '🚫 No SL' },
+    oversized_position:  { color: '#ec4899', label: '📦 Oversized' },
+    early_exit:          { color: '#06b6d4', label: '🏃 Early Exit' },
+    late_entry:          { color: '#3b82f6', label: '🐢 Late Entry' },
+  };
+
+  const activeMistakes = Object.keys(MC).filter(m => (data.mistakes[m] || []).some(v => v > 0));
+
+  if (!activeMistakes.length) {
+    canvas.parentElement.innerHTML = '<div style="height:160px;display:flex;align-items:center;justify-content:center;color:#22c55e;font-size:0.8rem">✅ No mistakes logged in this period</div>';
+    return;
+  }
+
+  TREND_CHARTS.mistakes = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: data.periods,
+      datasets: activeMistakes.map(m => ({
+        label: MC[m].label,
+        data: data.mistakes[m] || [],
+        borderColor: MC[m].color,
+        backgroundColor: MC[m].color + '15',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: false,
+        pointRadius: 3,
+        pointBackgroundColor: MC[m].color,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#7a90b0', font: { size: 10 }, boxWidth: 10, usePointStyle: true } },
+        tooltip: { backgroundColor: '#0f1623', borderColor: '#1e2d45', borderWidth: 1, titleColor: '#7a90b0', bodyColor: '#e8eeff', callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} time${ctx.parsed.y !== 1 ? 's' : ''}` } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#3a4f6a', font: { size: 9 }, maxTicksLimit: 10 }, border: { display: false } },
+        y: { min: 0, grid: { color: 'rgba(30,45,69,0.5)' }, ticks: { color: '#3a4f6a', font: { size: 9 }, stepSize: 1 }, border: { display: false } },
+      },
+    },
+  });
+}
+
+function renderTrendsTable(container, data) {
+  const el = container.querySelector('#trends-table');
+  if (!el) return;
+
+  const rows = data.periods.map((period, i) => ({
+    period,
+    disc:       data.discipline[i],
+    winRate:    data.winRate[i],
+    trades:     data.tradeCount[i],
+    pnl:        data.pnl[i],
+    fomo:       data.mistakes.fomo_entry?.[i] || 0,
+    revenge:    data.mistakes.revenge_trade?.[i] || 0,
+    overtrading:data.mistakes.overtrading?.[i] || 0,
+    topEmotion: Object.entries(data.emotions).reduce((best, [em, vals]) => {
+      const v = vals[i] || 0;
+      return v > (best.v || 0) ? { em, v } : best;
+    }, {}).em || '—',
+  }));
+
+  const EM_ICONS = { calm:'😌', confident:'💪', overconfident:'🤩', fearful:'😨', frustrated:'😤', revenge:'😡' };
+
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.72rem;min-width:560px">
+    <thead><tr style="border-bottom:1px solid #1e2d45">
+      <th style="padding:0.4rem 0.5rem;text-align:left;color:#3a4f6a;font-weight:500">Period</th>
+      <th style="padding:0.4rem 0.5rem;text-align:center;color:#a855f7;font-weight:500">Discipline</th>
+      <th style="padding:0.4rem 0.5rem;text-align:center;color:#3b82f6;font-weight:500">Win%</th>
+      <th style="padding:0.4rem 0.5rem;text-align:center;color:#7a90b0;font-weight:500">Trades</th>
+      <th style="padding:0.4rem 0.5rem;text-align:right;color:#7a90b0;font-weight:500">P&L</th>
+      <th style="padding:0.4rem 0.5rem;text-align:center;color:#22c55e;font-weight:500">Top Emotion</th>
+      <th style="padding:0.4rem 0.5rem;text-align:center;color:#ef4444;font-weight:500">FOMO/Rev/OT</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map((r, i) => {
+        const discColor = r.disc === null ? '#3a4f6a' : r.disc >= 7 ? '#22c55e' : r.disc >= 4 ? '#eab308' : '#ef4444';
+        const wrColor   = r.winRate === null ? '#3a4f6a' : r.winRate >= 55 ? '#22c55e' : r.winRate >= 40 ? '#eab308' : '#ef4444';
+        const pnlColor  = (r.pnl || 0) >= 0 ? '#22c55e' : '#ef4444';
+        const mistakeSum = r.fomo + r.revenge + r.overtrading;
+        return `<tr style="border-bottom:1px solid #0d1520">
+          <td style="padding:0.45rem 0.5rem;color:#7a90b0;font-family:'JetBrains Mono',monospace">${r.period}</td>
+          <td style="padding:0.45rem 0.5rem;text-align:center;color:${discColor};font-weight:700">${r.disc !== null ? r.disc + '/10' : '—'}</td>
+          <td style="padding:0.45rem 0.5rem;text-align:center;color:${wrColor};font-weight:600">${r.winRate !== null ? r.winRate + '%' : '—'}</td>
+          <td style="padding:0.45rem 0.5rem;text-align:center;color:#7a90b0">${r.trades}</td>
+          <td style="padding:0.45rem 0.5rem;text-align:right;color:${pnlColor};font-family:'JetBrains Mono',monospace">${fmtINR(r.pnl, true)}</td>
+          <td style="padding:0.45rem 0.5rem;text-align:center;color:#c0cce0">${EM_ICONS[r.topEmotion] || ''} ${r.topEmotion}</td>
+          <td style="padding:0.45rem 0.5rem;text-align:center;color:${mistakeSum > 0 ? '#ef4444' : '#22c55e'};font-family:'JetBrains Mono',monospace">${r.fomo}/${r.revenge}/${r.overtrading}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
 }
