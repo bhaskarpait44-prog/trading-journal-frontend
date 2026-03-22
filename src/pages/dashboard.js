@@ -71,7 +71,7 @@ export async function renderDashboard(container) {
       .db-stat-grid { grid-template-columns: repeat(3, 1fr); }
     }
     @media (min-width: 900px) {
-      .db-stat-grid { grid-template-columns: repeat(6, 1fr); }
+      .db-stat-grid { grid-template-columns: repeat(7, 1fr); }
     }
 
     .db-stat {
@@ -517,6 +517,7 @@ function renderHero(container, s) {
 
 // ── Stat cards ───────────────────────────────────────────────────────────────
 function renderStats(grid, s) {
+  const totalCharges = s.totalCharges || 0;
   const cards = [
     { label:'Win Rate',      value:`${(s.winRate||0).toFixed(1)}%`,                                      color:'#3b82f6',  sub:`${s.winners||0}W / ${s.losers||0}L` },
     { label:'Profit Factor', value:(s.profitFactor||0).toFixed(2),                                       color:'#a855f7',  sub:'Win / loss ratio' },
@@ -524,6 +525,7 @@ function renderStats(grid, s) {
     { label:'Total Trades',  value:s.totalTrades||0,                                                     color:'#60a5fa',  sub:'Closed trades' },
     { label:'Best Trade',    value:fmtINR(s.maxWin||0, true),                                            color:'#22c55e',  sub:`Avg ${fmtINR(Math.abs(s.avgWin||0))}` },
     { label:'Worst Trade',   value:fmtINR(s.maxLoss||0, true),                                           color:'#ef4444',  sub:`Avg ${fmtINR(Math.abs(s.avgLoss||0))}` },
+    { label:'Total Charges', value:fmtINR(totalCharges),                                                 color:'#f97316',  sub:`₹${((totalCharges/(s.totalTrades||1))).toFixed(0)}/trade avg` },
   ];
   grid.innerHTML = cards.map(c => `
     <div class="db-stat">
@@ -533,6 +535,7 @@ function renderStats(grid, s) {
       <div class="db-stat-sub">${c.sub}</div>
     </div>`).join('');
 }
+
 
 // ── Chart ────────────────────────────────────────────────────────────────────
 function renderChart(container, data) {

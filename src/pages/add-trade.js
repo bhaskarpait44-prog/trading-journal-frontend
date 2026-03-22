@@ -334,6 +334,19 @@ function renderManual(container) {
       <div class="card" style="margin-bottom:1rem">
         <div style="font-weight:600;font-size:0.875rem;color:#e8eeff;margin-bottom:1rem;
                     padding-bottom:0.75rem;border-bottom:1px solid #1e2d45">Trade Execution</div>
+        <!-- Exchange toggle -->
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.875rem">
+          <span style="font-size:0.72rem;color:#3a4f6a;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Exchange</span>
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.3rem 0.75rem;
+                 border-radius:6px;border:1px solid #1e2d45;background:#060a12;font-size:0.78rem;font-weight:600;color:#e8eeff;transition:all 0.15s" id="nse-label">
+            <input type="radio" name="exchange" id="exch-nse" value="NSE" checked style="accent-color:#3b82f6"> NSE
+          </label>
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.3rem 0.75rem;
+                 border-radius:6px;border:1px solid #1e2d45;background:#060a12;font-size:0.78rem;font-weight:600;color:#7a90b0;transition:all 0.15s" id="bse-label">
+            <input type="radio" name="exchange" id="exch-bse" value="BSE" style="accent-color:#3b82f6"> BSE
+          </label>
+        </div>
+
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.875rem">
           <div class="field">
             <label>Trade Type <span class="req">*</span></label>
@@ -367,8 +380,23 @@ function renderManual(container) {
             <input class="input" type="date" id="exit-date">
           </div>
           <div class="field">
-            <label>Charges ₹</label>
-            <input class="input" type="number" id="charges" value="20">
+            <label style="display:flex;align-items:center;gap:0.5rem">
+              Charges ₹
+              <span id="charges-auto-badge" style="display:none;font-size:0.65rem;font-weight:600;
+                background:linear-gradient(135deg,#1e3a5f,#1a2f4a);color:#60a5fa;
+                border:1px solid #1e3a5f;padding:1px 6px;border-radius:4px;letter-spacing:0.02em">AUTO · NSE</span>
+              <span id="charges-breakdown-btn" title="View charge breakdown"
+                style="display:none;cursor:pointer;font-size:0.7rem;color:#3b82f6;margin-left:auto;text-decoration:underline">breakdown</span>
+            </label>
+            <input type="hidden" id="charges" value="0">
+            <div id="charges-display" style="padding:0.5rem 0.75rem;background:#060a12;border:1px solid #1a2738;
+              border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;
+              color:#f97316;min-height:38px;display:flex;align-items:center">
+              <span style="color:#2a3f5a;font-size:0.75rem;font-weight:400">Fill price + lot + qty to calculate</span>
+            </div>
+            <div id="charges-breakdown" style="display:none;margin-top:0.5rem;background:#080f1a;
+              border:1px solid #1e2d45;border-radius:6px;padding:0.6rem 0.75rem;font-size:0.72rem;color:#94a3b8;line-height:1.9">
+            </div>
           </div>
         </div>
       </div>
@@ -442,6 +470,116 @@ function renderManual(container) {
   }
   lotInput.addEventListener('input', updateQtyInfo);
   qtyInput.addEventListener('input', updateQtyInfo);
+
+  // ── Zerodha F&O Options charge auto-calculator ────────────────────────────
+  // Rates verified from Zerodha calculator screenshots (Buy 100, Sell 110, Qty 400, Turnover 84000):
+  //   NSE: Brokerage 40 | STT 44 | Exchange 29.85 | GST 12.59 | SEBI 0.08 | Stamp 1 → Total 127.52
+  //   BSE: Brokerage 40 | STT 44 | Exchange 27.30 | GST 12.13 | SEBI 0.08 | Stamp 1 → Total 124.51
+  const EXCHANGE_RATES = {
+    NSE: { exchangePct: 0.0003554 },  // 29.85 / 84000
+    BSE: { exchangePct: 0.0003250 },  // 27.30 / 84000
+  };
+
+  // Entry-only (open trade) charge calculator — same verified formulas as backend calcCharges.js
+  // Brokerage = FLAT ₹20 per order (NOT 0.03% — that's equity intraday only)
+  // GST base includes SEBI; stamp duty floored to whole rupees
+  function calcZerodhaFOOptions(entryPrice, lotSize, lots, tradeType, exchange) {
+    if (!entryPrice || !lotSize || !lots) return null;
+    const qty         = lotSize * lots;
+    const turnover    = entryPrice * qty;
+    const exchRate    = (EXCHANGE_RATES[exchange] || EXCHANGE_RATES.NSE).exchangePct;
+
+    const brokerage   = 20;                                                   // flat ₹20 per order
+    const stt         = tradeType === 'SELL' ? 0.001 * turnover : 0;         // 0.1% sell side only
+    const exchangeTxn = parseFloat((exchRate * turnover).toFixed(2));
+    const sebi        = parseFloat((0.000001 * turnover).toFixed(2));         // ₹10/crore
+    const gst         = parseFloat((0.18 * (brokerage + exchangeTxn + sebi)).toFixed(2)); // SEBI in base
+    const stampDuty   = tradeType === 'BUY' ? Math.min(300, Math.floor(0.00003 * turnover)) : 0;
+
+    const total = parseFloat((brokerage + stt + exchangeTxn + sebi + gst + stampDuty).toFixed(2));
+    return { brokerage, stt, exchangeTxn, gst, sebi, stampDuty, total, turnover, exchange };
+  }
+
+  function getExchange() {
+    return container.querySelector('#exch-bse')?.checked ? 'BSE' : 'NSE';
+  }
+
+  function updateCharges() {
+    const entryPrice     = parseFloat(container.querySelector('#entry-price')?.value) || 0;
+    const lotSize        = parseInt(lotInput.value) || 0;
+    const lots           = parseInt(qtyInput.value) || 0;
+    const tradeType      = container.querySelector('#trade-type')?.value || 'BUY';
+    const exchange       = getExchange();
+    const chargesHidden  = container.querySelector('#charges');
+    const chargesDisplay = container.querySelector('#charges-display');
+    const badge          = container.querySelector('#charges-auto-badge');
+    const breakdownBtn   = container.querySelector('#charges-breakdown-btn');
+    const breakdownDiv   = container.querySelector('#charges-breakdown');
+
+    if (!entryPrice || !lotSize || !lots) {
+      chargesHidden.value = '0';
+      if (chargesDisplay) chargesDisplay.innerHTML = `<span style="color:#2a3f5a;font-size:0.75rem;font-weight:400">Fill price + lot + qty to calculate</span>`;
+      badge.style.display = 'none';
+      breakdownBtn.style.display = 'none';
+      breakdownDiv.style.display = 'none';
+      return;
+    }
+
+    const c = calcZerodhaFOOptions(entryPrice, lotSize, lots, tradeType, exchange);
+    if (!c) return;
+
+    chargesHidden.value  = c.total.toFixed(2);
+    if (chargesDisplay) chargesDisplay.textContent = `₹${c.total.toFixed(2)}`;
+    badge.style.display = 'inline';
+    badge.textContent   = `AUTO · ${exchange}`;
+    breakdownBtn.style.display = 'inline';
+
+    const fmt       = v => '₹' + v.toFixed(2);
+    const exchColor = exchange === 'NSE' ? '#3b82f6' : '#f97316';
+    breakdownDiv.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr auto;gap:0.15rem 1.5rem;color:#94a3b8">
+        <span style="color:#64748b">Exchange</span>
+        <span style="color:${exchColor};font-weight:700">${exchange}</span>
+        <span style="color:#64748b">Turnover</span>
+        <span style="color:#60a5fa">₹${c.turnover.toLocaleString('en-IN',{maximumFractionDigits:2})}</span>
+        <span>Brokerage (min ₹20, 0.03%)</span><span>${fmt(c.brokerage)}</span>
+        <span>STT ${tradeType==='SELL'?'(0.1% sell)':'(nil — buy side)'}</span><span>${fmt(c.stt)}</span>
+        <span>Exchange txn (${exchange==='NSE'?'0.03554%':'0.03250%'})</span><span>${fmt(c.exchangeTxn)}</span>
+        <span>GST (18%)</span><span>${fmt(c.gst)}</span>
+        <span>SEBI (₹10/cr)</span><span>${fmt(c.sebi)}</span>
+        <span>Stamp duty ${tradeType==='BUY'?'(0.003% buy)':'(nil — sell side)'}</span><span>${fmt(c.stampDuty)}</span>
+        <span style="color:#e2e8f0;font-weight:600;border-top:1px solid #1e2d45;padding-top:0.35rem">Total charges</span>
+        <span style="color:#f59e0b;font-weight:700;border-top:1px solid #1e2d45;padding-top:0.35rem">${fmt(c.total)}</span>
+      </div>`;
+  }
+
+  // Exchange toggle styling + recalc
+  ['exch-nse', 'exch-bse'].forEach(id => {
+    container.querySelector(`#${id}`)?.addEventListener('change', () => {
+      const isNSE   = container.querySelector('#exch-nse')?.checked;
+      const nseLabel = container.querySelector('#nse-label');
+      const bseLabel = container.querySelector('#bse-label');
+      if (nseLabel) { nseLabel.style.color = isNSE ? '#e8eeff' : '#7a90b0'; nseLabel.style.borderColor = isNSE ? '#2a3f5a' : '#1e2d45'; }
+      if (bseLabel) { bseLabel.style.color = isNSE ? '#7a90b0' : '#e8eeff'; bseLabel.style.borderColor = isNSE ? '#1e2d45' : '#2a3f5a'; }
+      updateCharges();
+    });
+  });
+
+  // Trigger on any relevant field change
+  ['entry-price', 'trade-type'].forEach(id => {
+    container.querySelector(`#${id}`)?.addEventListener('input',  updateCharges);
+    container.querySelector(`#${id}`)?.addEventListener('change', updateCharges);
+  });
+  lotInput.addEventListener('input',  updateCharges);
+  qtyInput.addEventListener('input',  updateCharges);
+
+  // Toggle breakdown visibility
+  container.querySelector('#charges-breakdown-btn')?.addEventListener('click', () => {
+    const bd = container.querySelector('#charges-breakdown');
+    bd.style.display = bd.style.display === 'none' ? 'block' : 'none';
+  });
+
+
 
   // ── Autocomplete ───────────────────────────────────────────────────────────
   function renderDropdown(results) {
@@ -560,6 +698,7 @@ function renderManual(container) {
 
     const payload = {
       underlying:  hiddenInput.value,
+      exchange:    container.querySelector('#exch-bse')?.checked ? 'BSE' : 'NSE',
       optionType:  get('option-type'),
       strikePrice: parseFloat(get('strike')),
       expiryDate:  get('expiry'),
