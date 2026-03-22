@@ -1020,7 +1020,8 @@ function renderTable(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelet
   let openId = null;
 
   function buildMenuHTML(trade) {
-    return (trade.status === 'OPEN' ? '<div class="fm-item fm-close" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s" onmouseenter="this.style.background=\'#1e2d45\'" onmouseleave="this.style.background=\'\'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>Close Trade</div>' : '')
+    return '<div class="fm-item fm-view" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#a78bfa;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s;border-bottom:1px solid #1a2738" onmouseenter="this.style.background=\'rgba(168,85,247,0.08)\'" onmouseleave="this.style.background=\'\'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View Journal</div>'
+      + (trade.status === 'OPEN' ? '<div class="fm-item fm-close" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s" onmouseenter="this.style.background=\'#1e2d45\'" onmouseleave="this.style.background=\'\'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>Close Trade</div>' : '')
       + '<div class="fm-item fm-strat" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s" onmouseenter="this.style.background=\'#1e2d45\'" onmouseleave="this.style.background=\'\'">🎯 Edit Strategy</div>'
       + '<div class="fm-item fm-psych" data-id="' + trade._id + '" style="padding:0.6rem 0.875rem;cursor:pointer;font-size:0.8rem;color:#c0cce0;display:flex;align-items:center;gap:0.5rem;transition:background 0.1s" onmouseenter="this.style.background=\'#1e2d45\'" onmouseleave="this.style.background=\'\'">🧠 Edit Psychology</div>'
       + '<div style="height:1px;background:#1e2d45"></div>'
@@ -1042,6 +1043,7 @@ function renderTable(wrap, trades, onClose, onEditStrategy, onEditPsych, onDelet
       const id = btn.dataset.id; const trade = trades.find(t => t._id === id); if (!trade) return;
       if (openId === id) { closeMenu(); return; }
       openId = id; floatMenu.innerHTML = buildMenuHTML(trade); floatMenu.style.display = 'block'; positionMenu(btn);
+      floatMenu.querySelector('.fm-view')?.addEventListener('click', e => { e.stopPropagation(); closeMenu(); openTradeDetail(trade); });
       floatMenu.querySelector('.fm-close')?.addEventListener('click', e => { e.stopPropagation(); closeMenu(); onClose(trade); });
       floatMenu.querySelector('.fm-strat')?.addEventListener('click', e => { e.stopPropagation(); closeMenu(); onEditStrategy(trade); });
       floatMenu.querySelector('.fm-psych')?.addEventListener('click', e => { e.stopPropagation(); closeMenu(); onEditPsych(trade); });
@@ -1114,6 +1116,7 @@ function renderMobileCards(wrap, trades, onClose, onEditStrategy, onEditPsych, o
         </div>
 
         <div class="tb-card-actions">
+          <button class="tb-act mc-view" data-id="${t._id}" style="color:#a78bfa;border-color:rgba(167,139,250,0.3)">👁 View</button>
           ${isOpen ? `<button class="tb-act g mc-close" data-id="${t._id}">✓ Close</button>` : ''}
           <button class="tb-act mc-strat" data-id="${t._id}">🎯 Strategy</button>
           <button class="tb-act mc-psych" data-id="${t._id}">🧠 Psychology</button>
@@ -1141,7 +1144,281 @@ function renderMobileCards(wrap, trades, onClose, onEditStrategy, onEditPsych, o
       if (trade) onEditPsych(trade);
     });
   });
+  mobileEl.querySelectorAll('.mc-view').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const trade = trades.find(t => t._id === btn.dataset.id);
+      if (trade) openTradeDetail(trade);
+    });
+  });
   mobileEl.querySelectorAll('.mc-del').forEach(btn => {
     btn.addEventListener('click', () => onDelete(btn.dataset.id));
   });
+}
+// ── Trade Journal / Detail View ───────────────────────────────────────────────
+function openTradeDetail(trade) {
+  // Remove existing
+  document.getElementById('trade-detail-overlay')?.remove();
+
+  const isOpen   = trade.status === 'OPEN';
+  const isClosed = trade.status === 'CLOSED';
+  const pnl      = trade.netPnl || 0;
+  const pnlColor = pnl >= 0 ? '#22c55e' : '#ef4444';
+  const pnlSign  = pnl >= 0 ? '+' : '';
+  const isCE     = trade.optionType === 'CE';
+  const isBuy    = trade.tradeType === 'BUY';
+  const psych    = trade.psychology || {};
+
+  const EMOTION_ICONS = { calm:'😌', confident:'💪', overconfident:'🤩', fearful:'😨', frustrated:'😤', revenge:'😡',
+                          satisfied:'😊', neutral:'😐', disappointed:'😞', regret:'😔', angry:'😠' };
+  const MISTAKE_LABELS = { no_stoploss:'No Stop Loss', revenge_trade:'Revenge Trade', fomo_entry:'FOMO Entry',
+                            overtrading:'Overtrading', oversized_position:'Oversized Position', late_entry:'Late Entry', early_exit:'Early Exit' };
+  const MISTAKE_COLORS = { no_stoploss:'#ef4444', revenge_trade:'#f97316', fomo_entry:'#eab308',
+                            overtrading:'#a855f7', oversized_position:'#ec4899', late_entry:'#3b82f6', early_exit:'#06b6d4' };
+
+  const discRating = psych.disciplineRating;
+  const discColor  = discRating >= 7 ? '#22c55e' : discRating >= 4 ? '#eab308' : '#ef4444';
+
+  // P&L calculation details
+  const qty     = (trade.lotSize || 1) * (trade.quantity || 1);
+  const gross   = trade.pnl  || 0;
+  const charges = trade.charges || 0;
+
+  // Duration
+  let duration = '—';
+  if (trade.entryDate && trade.exitDate) {
+    const diff = Math.round((new Date(trade.exitDate) - new Date(trade.entryDate)) / 86400000);
+    duration = diff === 0 ? 'Same day' : diff === 1 ? '1 day' : `${diff} days`;
+  }
+
+  // Return %
+  const invested  = (trade.entryPrice || 0) * qty;
+  const returnPct = invested > 0 && isClosed ? ((gross / invested) * 100).toFixed(2) : null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'trade-detail-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(4,8,18,0.92);backdrop-filter:blur(6px);display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto';
+
+  overlay.innerHTML = `
+  <style>
+    #tdo { width:100%;max-width:780px;margin:auto;display:flex;flex-direction:column;gap:0.875rem;padding-bottom:2rem }
+    .tdo-card { background:#0a1220;border:1px solid #1e2d45;border-radius:14px;padding:1.25rem }
+    .tdo-section-title { font-size:0.68rem;font-weight:700;color:#3a4f6a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:0.875rem;display:flex;align-items:center;gap:0.4rem }
+    .tdo-grid { display:grid;grid-template-columns:1fr 1fr;gap:0.625rem }
+    @media(min-width:540px) { .tdo-grid { grid-template-columns:repeat(3,1fr) } }
+    @media(min-width:720px) { .tdo-grid { grid-template-columns:repeat(4,1fr) } }
+    .tdo-field { display:flex;flex-direction:column;gap:0.2rem }
+    .tdo-label { font-size:0.6rem;color:#3a4f6a;font-weight:600;text-transform:uppercase;letter-spacing:.04em }
+    .tdo-value { font-size:0.875rem;font-weight:600;color:#c0cce0 }
+    .tdo-value.mono { font-family:'JetBrains Mono',monospace }
+    .tdo-disc-pip { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:2px }
+  </style>
+  <div id="tdo">
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+      <div>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.4rem">
+          <span style="font-size:1.1rem;font-weight:800;color:#e8eeff;font-family:'JetBrains Mono',monospace">${trade.symbol || trade.underlying}</span>
+          <span style="font-size:0.65rem;padding:2px 8px;border-radius:4px;font-weight:700;background:${isCE?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)'};color:${isCE?'#22c55e':'#ef4444'}">${trade.optionType}</span>
+          <span style="font-size:0.65rem;padding:2px 8px;border-radius:4px;font-weight:700;background:${isBuy?'rgba(59,130,246,0.12)':'rgba(168,85,247,0.12)'};color:${isBuy?'#60a5fa':'#c084fc'}">${trade.tradeType}</span>
+          <span style="font-size:0.65rem;padding:2px 8px;border-radius:4px;font-weight:700;background:${isOpen?'rgba(234,179,8,0.12)':isClosed?'rgba(30,45,69,0.5)':'rgba(107,114,128,0.15)'};color:${isOpen?'#eab308':isClosed?'#7a90b0':'#6b7280'}">${trade.status}</span>
+          ${trade.exchange ? `<span style="font-size:0.6rem;padding:1px 6px;border-radius:4px;font-weight:600;background:rgba(59,130,246,0.1);color:#3b82f6;border:1px solid rgba(59,130,246,0.2)">${trade.exchange}</span>` : ''}
+        </div>
+        <div style="font-size:0.72rem;color:#3a4f6a">${trade.underlying} · Strike ₹${(trade.strikePrice||0).toLocaleString('en-IN')} · Expiry ${new Date(trade.expiryDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div>
+      </div>
+      <button onclick="document.getElementById('trade-detail-overlay').remove()"
+        style="flex-shrink:0;width:32px;height:32px;border-radius:8px;border:1px solid #1e2d45;background:#0a1220;color:#7a90b0;cursor:pointer;font-size:1.2rem;display:flex;align-items:center;justify-content:center;transition:all 0.15s"
+        onmouseenter="this.style.borderColor='#ef4444';this.style.color='#ef4444'"
+        onmouseleave="this.style.borderColor='#1e2d45';this.style.color='#7a90b0'">×</button>
+    </div>
+
+    <!-- P&L Hero (closed trades only) -->
+    ${isClosed ? `
+    <div class="tdo-card" style="border-color:${pnl>=0?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'};background:${pnl>=0?'rgba(34,197,94,0.03)':'rgba(239,68,68,0.03)'};position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${pnlColor}60,transparent)"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+        <div>
+          <div style="font-size:0.65rem;color:#3a4f6a;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:0.3rem">Net P&L</div>
+          <div style="font-size:2rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:${pnlColor};line-height:1">${pnlSign}₹${Math.abs(pnl).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          ${returnPct !== null ? `<div style="font-size:0.72rem;color:${pnlColor};margin-top:0.3rem;opacity:0.8">${pnlSign}${returnPct}% return on capital</div>` : ''}
+        </div>
+        <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+          <div style="text-align:center">
+            <div style="font-size:0.6rem;color:#3a4f6a;margin-bottom:0.2rem">Gross P&L</div>
+            <div style="font-size:0.95rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:${gross>=0?'#22c55e':'#ef4444'}">${gross>=0?'+':''}₹${Math.abs(gross).toLocaleString('en-IN',{maximumFractionDigits:2})}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:0.6rem;color:#3a4f6a;margin-bottom:0.2rem">Charges</div>
+            <div style="font-size:0.95rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:#f97316">−₹${charges.toLocaleString('en-IN',{maximumFractionDigits:2})}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:0.6rem;color:#3a4f6a;margin-bottom:0.2rem">Duration</div>
+            <div style="font-size:0.95rem;font-weight:700;color:#7a90b0">${duration}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini P&L bar chart: entry → exit -->
+      <div style="margin-top:1rem;padding-top:0.875rem;border-top:1px solid #1e2d45">
+        <div style="font-size:0.6rem;color:#3a4f6a;margin-bottom:0.5rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Price Journey</div>
+        <div style="display:flex;align-items:flex-end;gap:0.5rem;height:52px">
+          ${(() => {
+            const ep = trade.entryPrice, xp = trade.exitPrice;
+            const max = Math.max(ep, xp) * 1.05;
+            const epH = Math.round((ep/max)*100);
+            const xpH = Math.round((xp/max)*100);
+            const won = xp > ep ? isBuy : !isBuy;
+            const barColor = won ? '#22c55e' : '#ef4444';
+            return `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;flex:1">
+              <div style="font-size:0.58rem;color:#3a4f6a">₹${ep}</div>
+              <div style="width:100%;background:rgba(59,130,246,0.6);border-radius:3px 3px 0 0" title="Entry ₹${ep}"></div>
+              <div style="font-size:0.6rem;color:#60a5fa;font-weight:600">Entry</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex:0.3">
+              <div style="font-size:1rem;color:${barColor}">${won?'→':'→'}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;flex:1">
+              <div style="font-size:0.58rem;color:${barColor}">₹${xp}</div>
+              <div style="width:100%;background:${barColor}99;border-radius:3px 3px 0 0" title="Exit ₹${xp}"></div>
+              <div style="font-size:0.6rem;color:${barColor};font-weight:600">Exit</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;flex:1.5">
+              <div style="font-size:0.58rem;color:${pnlColor};font-weight:700">${pnlSign}₹${Math.abs(pnl).toFixed(0)}</div>
+              <div style="width:100%;background:${pnlColor}30;border:1px dashed ${pnlColor}60;border-radius:3px;display:flex;align-items:center;justify-content:center">
+                <span style="font-size:0.65rem;color:${pnlColor};font-weight:700">${pnlSign}${returnPct ? returnPct+'%' : ''}</span>
+              </div>
+              <div style="font-size:0.6rem;color:#3a4f6a;font-weight:600">Net P&L</div>
+            </div>`;
+          })()}
+        </div>
+      </div>
+    </div>` : `
+    <div class="tdo-card" style="border-color:rgba(234,179,8,0.2);background:rgba(234,179,8,0.03)">
+      <div style="display:flex;align-items:center;gap:0.75rem">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(234,179,8,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div>
+          <div style="font-size:0.82rem;font-weight:700;color:#eab308">Position Open</div>
+          <div style="font-size:0.72rem;color:#3a4f6a;margin-top:1px">Entry ₹${trade.entryPrice} · Qty ${qty} units · ${duration === '—' ? 'Entered ' + new Date(trade.entryDate).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : duration + ' ago'}</div>
+        </div>
+      </div>
+    </div>`}
+
+    <!-- Trade Details -->
+    <div class="tdo-card">
+      <div class="tdo-section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+        Trade Details
+      </div>
+      <div class="tdo-grid">
+        <div class="tdo-field"><div class="tdo-label">Entry Price</div><div class="tdo-value mono">₹${trade.entryPrice}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Exit Price</div><div class="tdo-value mono">${trade.exitPrice ? '₹'+trade.exitPrice : '—'}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Stop Loss</div><div class="tdo-value mono" style="color:${trade.stopLoss?'#ef4444':'#3a4f6a'}">${trade.stopLoss ? '₹'+trade.stopLoss : '—'}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Target</div><div class="tdo-value mono" style="color:${trade.target?'#22c55e':'#3a4f6a'}">${trade.target ? '₹'+trade.target : '—'}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Lot Size</div><div class="tdo-value mono">${trade.lotSize}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Qty (Lots)</div><div class="tdo-value mono">${trade.quantity}L × ${trade.lotSize} = ${qty}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Entry Date</div><div class="tdo-value">${new Date(trade.entryDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Exit Date</div><div class="tdo-value">${trade.exitDate ? new Date(trade.exitDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '—'}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Broker</div><div class="tdo-value">${trade.broker || '—'}</div></div>
+        <div class="tdo-field"><div class="tdo-label">Source</div><div class="tdo-value" style="text-transform:capitalize">${trade.source || 'manual'}</div></div>
+        ${trade.rating ? `<div class="tdo-field"><div class="tdo-label">Rating</div><div class="tdo-value">${'★'.repeat(trade.rating)}${'☆'.repeat(5-trade.rating)}</div></div>` : ''}
+        ${trade.tags?.length ? `<div class="tdo-field" style="grid-column:1/-1"><div class="tdo-label">Tags</div><div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:0.2rem">${trade.tags.map(t=>`<span style="font-size:0.65rem;padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2)">${t}</span>`).join('')}</div></div>` : ''}
+      </div>
+    </div>
+
+    <!-- Market Context -->
+    ${(trade.niftyAtEntry || trade.vixAtEntry || trade.iv || trade.delta || trade.theta) ? `
+    <div class="tdo-card">
+      <div class="tdo-section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Market Context at Entry
+      </div>
+      <div class="tdo-grid">
+        ${trade.niftyAtEntry ? `<div class="tdo-field"><div class="tdo-label">NIFTY at Entry</div><div class="tdo-value mono" style="color:#60a5fa">${trade.niftyAtEntry.toLocaleString('en-IN')}</div></div>` : ''}
+        ${trade.vixAtEntry   ? `<div class="tdo-field"><div class="tdo-label">VIX at Entry</div><div class="tdo-value mono" style="color:${trade.vixAtEntry>20?'#ef4444':trade.vixAtEntry>14?'#eab308':'#22c55e'}">${trade.vixAtEntry}</div></div>` : ''}
+        ${trade.iv    ? `<div class="tdo-field"><div class="tdo-label">IV</div><div class="tdo-value mono">${trade.iv}%</div></div>` : ''}
+        ${trade.delta ? `<div class="tdo-field"><div class="tdo-label">Delta</div><div class="tdo-value mono">${trade.delta}</div></div>` : ''}
+        ${trade.theta ? `<div class="tdo-field"><div class="tdo-label">Theta</div><div class="tdo-value mono" style="color:#f97316">${trade.theta}</div></div>` : ''}
+      </div>
+    </div>` : ''}
+
+    <!-- Strategy & Notes -->
+    ${(trade.strategy || trade.setupType || trade.notes) ? `
+    <div class="tdo-card">
+      <div class="tdo-section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Strategy & Notes
+      </div>
+      ${trade.strategy  ? `<div style="margin-bottom:0.625rem"><div class="tdo-label" style="margin-bottom:0.25rem">Strategy</div><span style="font-size:0.8rem;padding:3px 10px;border-radius:5px;background:rgba(59,130,246,0.12);color:#60a5fa;border:1px solid rgba(59,130,246,0.25);font-weight:600">${trade.strategy}</span></div>` : ''}
+      ${trade.setupType ? `<div style="margin-bottom:0.625rem"><div class="tdo-label" style="margin-bottom:0.25rem">Setup Type</div><span style="font-size:0.78rem;color:#c0cce0">${trade.setupType}</span></div>` : ''}
+      ${trade.notes     ? `<div><div class="tdo-label" style="margin-bottom:0.35rem">Notes</div><div style="font-size:0.8rem;color:#c0cce0;line-height:1.7;padding:0.75rem;background:#060a12;border-radius:8px;border:1px solid #1a2738;white-space:pre-wrap">${trade.notes}</div></div>` : ''}
+    </div>` : ''}
+
+    <!-- Psychology -->
+    ${(psych.emotionBefore || psych.emotionAfter || psych.disciplineRating != null || psych.mistakeTags?.length || psych.notes) ? `
+    <div class="tdo-card" style="border-color:rgba(168,85,247,0.2);background:rgba(168,85,247,0.02)">
+      <div class="tdo-section-title" style="color:#a855f7">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="12" r="10"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Psychology Log
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;margin-bottom:${psych.mistakeTags?.length||psych.notes?'0.875rem':'0'}">
+        ${psych.emotionBefore ? `
+        <div class="tdo-field">
+          <div class="tdo-label">Emotion Before</div>
+          <div style="font-size:0.9rem;margin-top:0.2rem">${EMOTION_ICONS[psych.emotionBefore]||'•'} <span style="color:#c0cce0;font-weight:600;text-transform:capitalize">${psych.emotionBefore}</span></div>
+        </div>` : ''}
+        ${psych.emotionAfter ? `
+        <div class="tdo-field">
+          <div class="tdo-label">Emotion After</div>
+          <div style="font-size:0.9rem;margin-top:0.2rem">${EMOTION_ICONS[psych.emotionAfter]||'•'} <span style="color:#c0cce0;font-weight:600;text-transform:capitalize">${psych.emotionAfter}</span></div>
+        </div>` : ''}
+        ${psych.disciplineRating != null ? `
+        <div class="tdo-field">
+          <div class="tdo-label">Discipline Score</div>
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.3rem">
+            <span style="font-size:1.1rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:${discColor}">${psych.disciplineRating}<span style="font-size:0.65rem;color:#3a4f6a">/10</span></span>
+            <div style="display:flex;gap:2px">${Array.from({length:10},(_,i)=>`<div style="width:12px;height:6px;border-radius:2px;background:${i<psych.disciplineRating?discColor+'99':'#1e2d45'}"></div>`).join('')}</div>
+          </div>
+        </div>` : ''}
+        ${psych.followedPlan != null ? `
+        <div class="tdo-field">
+          <div class="tdo-label">Followed Plan</div>
+          <div style="margin-top:0.3rem;font-size:0.82rem;font-weight:600;color:${psych.followedPlan?'#22c55e':'#ef4444'}">${psych.followedPlan?'✓ Yes':'✗ No'}</div>
+        </div>` : ''}
+      </div>
+      ${psych.mistakeTags?.length ? `
+      <div style="margin-bottom:${psych.notes?'0.875rem':'0'}">
+        <div class="tdo-label" style="margin-bottom:0.4rem">Mistake Tags</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.375rem">
+          ${psych.mistakeTags.map(t=>`<span style="font-size:0.68rem;padding:3px 9px;border-radius:4px;font-weight:600;background:${MISTAKE_COLORS[t]||'#a855f7'}18;color:${MISTAKE_COLORS[t]||'#a855f7'};border:1px solid ${MISTAKE_COLORS[t]||'#a855f7'}35">${MISTAKE_LABELS[t]||t}</span>`).join('')}
+        </div>
+      </div>` : ''}
+      ${psych.notes ? `
+      <div>
+        <div class="tdo-label" style="margin-bottom:0.35rem">Psychology Notes</div>
+        <div style="font-size:0.78rem;color:#c0cce0;line-height:1.7;padding:0.75rem;background:#060a12;border-radius:8px;border:1px solid #1a2738;white-space:pre-wrap">${psych.notes}</div>
+      </div>` : ''}
+    </div>` : ''}
+
+    <!-- Footer actions -->
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;flex-wrap:wrap">
+      <button onclick="document.getElementById('trade-detail-overlay').remove()"
+        style="padding:0.5rem 1.25rem;border-radius:8px;border:1px solid #1e2d45;background:transparent;color:#7a90b0;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s"
+        onmouseenter="this.style.borderColor='#2a3f5a';this.style.color='#c0cce0'"
+        onmouseleave="this.style.borderColor='#1e2d45';this.style.color='#7a90b0'">Close</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(overlay);
+
+  // Close on backdrop click
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  // Close on Escape
+  function onEsc(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onEsc); } }
+  document.addEventListener('keydown', onEsc);
+
+  // Scroll to top of overlay
+  overlay.scrollTop = 0;
 }
